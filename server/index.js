@@ -15,6 +15,7 @@ const allowedOrigins = [
   'http://localhost:19006',
   'exp://192.168.100.13:19000',
   // Añade aquí el dominio de tu app en producción cuando lo tengas
+  process.env.CLIENT_URL, // URL del cliente en producción
 ];
 
 app.use(cors({
@@ -22,7 +23,7 @@ app.use(cors({
     // Permitir requests sin origin (como mobile apps o curl)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) === -1) {
+    if (allowedOrigins.indexOf(origin) === -1 && process.env.NODE_ENV === 'production') {
       const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
       return callback(new Error(msg), false);
     }
@@ -77,22 +78,20 @@ app.use('*', (req, res) => {
   });
 });
 
-const server = app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log('\n🚀 Servidor iniciado:');
   console.log(`📡 Puerto: ${PORT}`);
   console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`🌐 Local: http://localhost:${PORT}`);
-    console.log(`📱 Android: http://10.0.2.2:${PORT}`);
-    console.log(`🔗 Network: http://192.168.100.13:${PORT}\n`);
-  }
+  console.log(`🔗 URL: ${process.env.NODE_ENV === 'production' ? process.env.SERVER_URL : `http://localhost:${PORT}`}\n`);
 });
 
-// Manejo de cierre graceful
+// Manejo de señales de terminación
 process.on('SIGTERM', () => {
   console.log('📥 SIGTERM recibido. Cerrando servidor...');
-  server.close(() => {
-    console.log('✋ Servidor cerrado');
-    process.exit(0);
-  });
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('📥 SIGINT recibido. Cerrando servidor...');
+  process.exit(0);
 });
