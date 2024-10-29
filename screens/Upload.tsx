@@ -15,6 +15,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { API_URL } from '../config';
 
 type RootStackParamList = {
   Home: undefined;
@@ -35,8 +36,6 @@ const Upload = ({ navigation }: Props) => {
   const [loading, setLoading] = useState(false);
   const [serverStatus, setServerStatus] = useState<string>('checking');
 
-  const baseURL = 'http://192.168.100.13:3001';
-
   // Check server connectivity on component mount
   useEffect(() => {
     checkServerStatus();
@@ -44,8 +43,8 @@ const Upload = ({ navigation }: Props) => {
 
   const checkServerStatus = async () => {
     try {
-      console.log('Checking server status at:', `${baseURL}/health`);
-      const response = await axios.get(`${baseURL}/health`, { timeout: 5000 });
+      console.log('Checking server status at:', `${API_URL}/health`);
+      const response = await axios.get(`${API_URL}/health`, { timeout: 5000 });
       console.log('Server health check response:', response.data);
       setServerStatus('connected');
     } catch (error) {
@@ -147,9 +146,9 @@ const Upload = ({ navigation }: Props) => {
     setLoading(true);
 
     try {
-      console.log('Sending request to:', `${baseURL}/api/process-receipt`);
+      console.log('Sending request to:', `${API_URL}/api/process-receipt`);
       const response = await axios.post(
-        `${baseURL}/api/process-receipt`,
+        `${API_URL}/api/process-receipt`,
         {
           imageData: image.base64,
           mimeType: image.mimeType || 'image/jpeg'
