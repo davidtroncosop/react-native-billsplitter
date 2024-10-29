@@ -8,6 +8,7 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
+  Share,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -220,6 +221,27 @@ const SplitBill: React.FC = () => {
     }
   };
 
+  const handleShare = async () => {
+    try {
+      let message = `💰 Bill Split Summary 💰\n\n`;
+      message += `Subtotal: $${subtotal.toFixed(2)}\n`;
+      message += `Tip (${tipPercentage}%): $${tipAmount.toFixed(2)}\n`;
+      message += `Total: $${total.toFixed(2)}\n\n`;
+      message += `👥 Individual Splits:\n`;
+      
+      people.forEach(person => {
+        message += `${person.name}: $${person.total.toFixed(2)}\n`;
+      });
+
+      await Share.share({
+        message,
+        title: 'Bill Split Results',
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to share the bill split results');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
@@ -357,12 +379,21 @@ const SplitBill: React.FC = () => {
           ))}
         </View>
 
-        <TouchableOpacity
-          style={styles.calculateButton}
-          onPress={calculateSplitTotals}
-        >
-          <Text style={styles.calculateButtonText}>Calculate Split</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.calculateButton}
+            onPress={calculateSplitTotals}
+          >
+            <Text style={styles.calculateButtonText}>Calculate Split</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.shareButton}
+            onPress={handleShare}
+          >
+            <Text style={styles.shareButtonText}>Share Results</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -568,14 +599,28 @@ const styles = StyleSheet.create({
   assignButtonTextActive: {
     color: '#fff',
   },
+  buttonContainer: {
+    marginVertical: 20,
+    gap: 12,
+  },
   calculateButton: {
     backgroundColor: '#4F46E5',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginVertical: 20,
   },
   calculateButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  shareButton: {
+    backgroundColor: '#10B981',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  shareButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
