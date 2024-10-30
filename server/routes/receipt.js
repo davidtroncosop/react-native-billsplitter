@@ -84,6 +84,7 @@ router.post('/process-receipt', async (req, res) => {
       });
     }
 
+    console.log('Creating Gemini model instance...');
     const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
 
     const prompt = `
@@ -130,6 +131,7 @@ Only return the JSON object, no additional text or explanations.`;
     });
 
     if (!result) {
+      console.error('No response received from Gemini API');
       throw new Error('No response received from Gemini API');
     }
 
@@ -137,6 +139,7 @@ Only return the JSON object, no additional text or explanations.`;
     const text = response.text();
 
     if (!text) {
+      console.error('Empty response from Gemini API');
       throw new Error('Empty response from Gemini API');
     }
 
@@ -196,7 +199,8 @@ Only return the JSON object, no additional text or explanations.`;
       success: false, 
       error: 'Receipt processing failed',
       details: error.message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      geminiConfigured: !!GEMINI_API_KEY
     });
   }
 });

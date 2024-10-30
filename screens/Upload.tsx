@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Linking,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -49,6 +50,17 @@ const Upload = ({ navigation }: Props) => {
         }
       });
       console.log('Server health check response:', response.data);
+      
+      if (!response.data.geminiKey || response.data.geminiKey === 'missing') {
+        setServerStatus('error');
+        Alert.alert(
+          'Configuration Error',
+          'The server is missing required API keys. Please contact support.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
       setServerStatus('connected');
     } catch (error) {
       console.error('Server health check failed:', error);
@@ -214,7 +226,7 @@ const Upload = ({ navigation }: Props) => {
       const response = await axios.post(
         `${API_URL}/api/process-receipt`,
         {
-          imageData: image.base64,
+          imageData: `data:image/jpeg;base64,${image.base64}`,
           mimeType: image.mimeType
         },
         {
@@ -222,13 +234,12 @@ const Upload = ({ navigation }: Props) => {
             'Content-Type': 'application/json',
           },
           timeout: 60000,
-          validateStatus: status => status < 500, // Permitir manejar errores 4xx
         }
       );
 
       console.log('Receipt processing response status:', response.status);
 
-      if (response.status === 200 && response.data?.success) {
+      if (response.data?.success) {
         await AsyncStorage.setItem(
           'extractedBillData',
           JSON.stringify(response.data.data)
@@ -244,7 +255,11 @@ const Upload = ({ navigation }: Props) => {
       let retryAction = null;
 
       if (axios.isAxiosError(error)) {
-        if (error.response?.status === 400) {
+        const responseData = error.response?.data;
+        
+        if (responseData?.details) {
+          errorMessage = responseData.details;
+        } else if (error.response?.status === 400) {
           errorMessage = 'The image could not be processed. Please try another image or take a clearer photo.';
         } else if (error.response?.status === 413) {
           errorMessage = 'The image is too large. Please try again with a smaller image.';
@@ -253,6 +268,11 @@ const Upload = ({ navigation }: Props) => {
         } else if (error.code === 'ERR_NETWORK') {
           errorMessage = 'Network connection error. Please check your internet connection.';
           retryAction = checkServerStatus;
+        }
+
+        // Si la API key no está configurada
+        if (responseData?.geminiConfigured === false) {
+          errorMessage = 'The server is missing required API configuration. Please contact support.';
         }
       }
 
@@ -268,8 +288,6 @@ const Upload = ({ navigation }: Props) => {
       setLoading(false);
     }
   };
-
-  // ... (mantener los mismos estilos)
 
   return (
     <View style={styles.container}>
@@ -290,6 +308,15 @@ const Upload = ({ navigation }: Props) => {
             Server disconnected - Tap to retry
           </Text>
         </TouchableOpacity>
+      )}
+
+      {serverStatus === 'error' && (
+        <View style={[styles.statusBanner, { backgroundColor: '#FEE2E2' }]}>
+          <Icon name="alert-triangle" size={20} color="#DC2626" />
+          <Text style={[styles.statusText, { color: '#DC2626' }]}>
+            Server configuration error
+          </Text>
+        </View>
       )}
 
       <View style={styles.buttonContainer}>
@@ -353,7 +380,6 @@ const Upload = ({ navigation }: Props) => {
   );
 };
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -365,7 +391,10 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 20,
     borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   statusText: {
     color: '#92400E',
