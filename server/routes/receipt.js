@@ -7,6 +7,7 @@ dotenv.config();
 const router = express.Router();
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
+// Validación inicial de API key
 if (!GEMINI_API_KEY) {
   throw new Error('GEMINI_API_KEY is not set in environment variables');
 }
@@ -15,20 +16,38 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 // Función para limpiar el texto JSON
 const cleanJsonText = (text) => {
-  // Eliminar los marcadores de código markdown y caracteres especiales
   return text
     .replace(/```json/g, '')
     .replace(/```/g, '')
-    .replace(/[\u201C\u201D]/g, '"') // Reemplazar comillas tipográficas
-    .replace(/[\u2018\u2019]/g, "'") // Reemplazar comillas simples tipográficas
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'")
     .trim();
+};
+
+// Función para validar la estructura del JSON
+const validateJsonStructure = (data) => {
+  if (!data.items || !Array.isArray(data.items) || !data.total) {
+    throw new Error('Invalid JSON structure: missing required fields');
+  }
+
+  data.items.forEach((item, index) => {
+    if (!item.name || typeof item.quantity !== 'number' || !item.price) {
+      throw new Error(`Invalid item structure at index ${index}`);
+    }
+  });
+
+  return true;
 };
 
 router.post('/process-receipt', async (req, res) => {
   try {
-    console.log('Receipt processing request received');
+    console.log('=== Starting Receipt Processing ===');
+    console.log('Request headers:', req.headers);
+    console.log('Content-Type:', req.headers['content-type']);
+
     const { imageData, mimeType = "image/jpeg" } = req.body;
     
+    // Validación de datos de entrada
     if (!imageData) {
       console.error('No image data received');
       return res.status(400).json({ 
@@ -38,26 +57,30 @@ router.post('/process-receipt', async (req, res) => {
       });
     }
 
-    // Check image data size
-    const sizeInMB = (imageData.length * 3/4) / (1024*1024); // Convert base64 size to MB
-    console.log(`Image size: ${sizeInMB.toFixed(2)} MB`);
-    
-    if (sizeInMB > 4) {
-      console.error('Image too large:', sizeInMB.toFixed(2), 'MB');
-      return res.status(400).json({
-        success: false,
-        error: 'Image too large',
-        details: 'Image must be less than 4MB'
-      });
-    }
-
-    // Validate base64 format
-    if (!imageData.match(/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/)) {
+    // Verificar el formato del base64
+    if (!imageData.startsWith('data:image') && !imageData.match(/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/)) {
       console.error('Invalid base64 format');
       return res.status(400).json({ 
         success: false, 
         error: 'Invalid image data format',
         details: 'The image data must be properly base64 encoded'
+      });
+    }
+
+    // Procesar el base64 para remover el prefijo si existe
+    const base64Data = imageData.includes('base64,') 
+      ? imageData.split('base64,')[1] 
+      : imageData;
+
+    // Verificar tamaño
+    const sizeInMB = (base64Data.length * 3/4) / (1024*1024);
+    console.log(`Image size: ${sizeInMB.toFixed(2)} MB`);
+    
+    if (sizeInMB > 4) {
+      return res.status(400).json({
+        success: false,
+        error: 'Image too large',
+        details: `Image size (${sizeInMB.toFixed(2)}MB) exceeds 4MB limit`
       });
     }
 
@@ -94,99 +117,86 @@ Only return the JSON object, no additional text or explanations.`;
     const imageParts = [
       {
         inlineData: {
-          data: imageData,
+          data: base64Data,
           mimeType: mimeType
         }
       }
     ];
 
+    console.log('Sending request to Gemini API...');
+    
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }, ...imageParts] }]
+    });
+
+    if (!result) {
+      throw new Error('No response received from Gemini API');
+    }
+
+    const response = await result.response;
+    const text = response.text();
+
+    if (!text) {
+      throw new Error('Empty response from Gemini API');
+    }
+
+    console.log('Raw response from Gemini:', text);
+
+    const cleanedText = cleanJsonText(text);
+    console.log('Cleaned text:', cleanedText);
+
     try {
-      console.log('Sending request to Gemini API');
-      console.log('API Key length:', GEMINI_API_KEY.length, 'characters');
-      console.log('First 5 chars of API Key:', GEMINI_API_KEY.substring(0, 5));
+      const extractedData = JSON.parse(cleanedText);
+      validateJsonStructure(extractedData);
       
-      const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }, ...imageParts] }]
+      console.log('Successfully processed receipt:', extractedData);
+      res.json({ 
+        success: true, 
+        data: extractedData,
+        debug: {
+          imageSize: `${sizeInMB.toFixed(2)}MB`,
+          processingTime: new Date().toISOString()
+        }
       });
-
-      if (!result) {
-        throw new Error('No response from Gemini API');
-      }
-
-      // Imprime el contenido completo de la respuesta para ver detalles
-      console.log('Full Gemini API response:', JSON.stringify(result, null, 2));
+    } catch (parseError) {
+      console.error('JSON parsing error:', parseError);
       
-      const response = await result.response;
-      const text = response.text();
-
-      if (!text) {
-        throw new Error('Empty text from Gemini API response');
+      // Intento de recuperación
+      const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const extractedData = JSON.parse(jsonMatch[0]);
+          if (validateJsonStructure(extractedData)) {
+            console.log('Successfully recovered and parsed data:', extractedData);
+            res.json({ 
+              success: true, 
+              data: extractedData,
+              recovered: true
+            });
+            return;
+          }
+        } catch (recoveryError) {
+          console.error('Recovery attempt failed:', recoveryError);
+        }
       }
 
-      // Limpiar el texto antes de parsearlo
-      const cleanedText = cleanJsonText(text);
-      console.log('Cleaned text:', cleanedText);
-
-      try {
-        const extractedData = JSON.parse(cleanedText);
-        
-        // Validación adicional de la estructura del JSON
-        if (!extractedData.items || !Array.isArray(extractedData.items) || !extractedData.total) {
-          throw new Error('Invalid JSON structure: missing required fields');
-        }
-
-        // Validación de cada item
-        extractedData.items.forEach((item, index) => {
-          if (!item.name || typeof item.quantity !== 'number' || !item.price) {
-            throw new Error(`Invalid item structure at index ${index}`);
-          }
-        });
-
-        console.log('Successfully parsed and validated data:', extractedData);
-        res.json({ success: true, data: extractedData });
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError.message);
-        console.error('Cleaned text that failed to parse:', cleanedText);
-        
-        // Intento de recuperación si el JSON está incompleto
-        const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          try {
-            const extractedData = JSON.parse(jsonMatch[0]);
-            if (extractedData.items && Array.isArray(extractedData.items) && extractedData.total) {
-              console.log('Successfully parsed data after recovery:', extractedData);
-              res.json({ success: true, data: extractedData });
-              return;
-            }
-          } catch (recoveryError) {
-            console.error('Recovery parse error:', recoveryError.message);
-          }
-        }
-
-        res.status(500).json({ 
-          success: false, 
-          error: 'Failed to parse receipt data', 
-          details: parseError.message,
-          raw: cleanedText 
-        });
-      }
-    } catch (geminiError) {
-      console.error('Gemini API Error:', geminiError.message);
-      console.error('Full error object:', JSON.stringify(geminiError, null, 2));
       res.status(500).json({ 
         success: false, 
-        error: 'Failed to process receipt with AI',
-        details: geminiError.message
+        error: 'Failed to parse receipt data',
+        details: parseError.message,
+        rawResponse: cleanedText
       });
     }
 
   } catch (error) {
-    console.error('Error processing receipt:', error.message);
-    console.error('Full error stack:', error.stack);
+    console.error('Fatal error in receipt processing:', error);
+    console.error('Stack trace:', error.stack);
+    
     res.status(500).json({ 
       success: false, 
-      error: 'General error in receipt processing',
-      details: error.message
+      error: 'Receipt processing failed',
+      details: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 });
