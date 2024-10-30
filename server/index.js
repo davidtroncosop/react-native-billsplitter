@@ -54,7 +54,8 @@ app.get('/health', (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     serverIP: req.socket.localAddress,
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    geminiKey: process.env.GEMINI_API_KEY ? 'configured' : 'missing'
   });
 });
 
@@ -70,6 +71,7 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
+// Montar las rutas con el prefijo /api
 app.use('/api', receiptRoutes);
 
 // Middleware de error mejorado
@@ -97,6 +99,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📡 Puerto: ${PORT}`);
   console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 URL: ${process.env.NODE_ENV === 'production' ? process.env.SERVER_URL : `http://localhost:${PORT}`}\n`);
+  console.log('🔑 Gemini API Key:', process.env.GEMINI_API_KEY ? 'configurada' : 'no configurada');
 });
 
 // Manejo de señales de terminación

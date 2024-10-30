@@ -11,8 +11,8 @@ RUN npm install --production
 # Copy server files
 COPY . .
 
-# Expose the port your app runs on
-EXPOSE 3000
+# The port your server actually uses (3001 as seen in index.js)
+EXPOSE 3001
 
 # Start the application
 CMD ["npm", "start"]
