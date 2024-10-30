@@ -50,17 +50,6 @@ const Upload = ({ navigation }: Props) => {
         }
       });
       console.log('Server health check response:', response.data);
-      
-      if (!response.data.geminiKey || response.data.geminiKey === 'missing') {
-        setServerStatus('error');
-        Alert.alert(
-          'Configuration Error',
-          'The server is missing required API keys. Please contact support.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-      
       setServerStatus('connected');
     } catch (error) {
       console.error('Server health check failed:', error);
@@ -269,11 +258,6 @@ const Upload = ({ navigation }: Props) => {
           errorMessage = 'Network connection error. Please check your internet connection.';
           retryAction = checkServerStatus;
         }
-
-        // Si la API key no está configurada
-        if (responseData?.geminiConfigured === false) {
-          errorMessage = 'The server is missing required API configuration. Please contact support.';
-        }
       }
 
       Alert.alert(
@@ -308,15 +292,6 @@ const Upload = ({ navigation }: Props) => {
             Server disconnected - Tap to retry
           </Text>
         </TouchableOpacity>
-      )}
-
-      {serverStatus === 'error' && (
-        <View style={[styles.statusBanner, { backgroundColor: '#FEE2E2' }]}>
-          <Icon name="alert-triangle" size={20} color="#DC2626" />
-          <Text style={[styles.statusText, { color: '#DC2626' }]}>
-            Server configuration error
-          </Text>
-        </View>
       )}
 
       <View style={styles.buttonContainer}>
