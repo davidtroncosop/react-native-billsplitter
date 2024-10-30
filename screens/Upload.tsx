@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -31,20 +31,23 @@ interface ImageInfo {
   mimeType?: string;
 }
 
+const MAX_IMAGE_SIZE = 1024 * 1024 * 4; // 4MB en bytes
+
 const Upload = ({ navigation }: Props) => {
   const [image, setImage] = useState<ImageInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [serverStatus, setServerStatus] = useState<string>('checking');
 
-  // Check server connectivity on component mount
-  useEffect(() => {
-    checkServerStatus();
-  }, []);
-
-  const checkServerStatus = async () => {
+  const checkServerStatus = useCallback(async () => {
     try {
       console.log('Checking server status at:', `${API_URL}/health`);
-      const response = await axios.get(`${API_URL}/health`, { timeout: 5000 });
+      const response = await axios.get(`${API_URL}/health`, { 
+        timeout: 5000,
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       console.log('Server health check response:', response.data);
       setServerStatus('connected');
     } catch (error) {
@@ -52,84 +55,150 @@ const Upload = ({ navigation }: Props) => {
       setServerStatus('disconnected');
       Alert.alert(
         'Server Connection Error',
-        'Unable to connect to the server. Please ensure the server is running.'
+        'Unable to connect to the server. Please check your internet connection and try again.',
+        [
+          { text: 'Retry', onPress: checkServerStatus },
+          { text: 'OK' }
+        ]
       );
     }
-  };
+  }, []);
 
-  const processImage = async (uri: string): Promise<ImageInfo> => {
+  useEffect(() => {
+    checkServerStatus();
+    
+    // Configurar intervalo de verificación
+    const interval = setInterval(checkServerStatus, 30000); // Cada 30 segundos
+    return () => clearInterval(interval);
+  }, [checkServerStatus]);
+
+  const optimizeImage = async (uri: string): Promise<ImageInfo> => {
     try {
-      console.log('Processing image:', uri);
-      const manipResult = await ImageManipulator.manipulateAsync(
+      console.log('Starting image optimization');
+      
+      // Primero, intenta con una compresión moderada
+      let manipResult = await ImageManipulator.manipulateAsync(
         uri,
-        [{ resize: { width: 1500, height: 2000 } }],
+        [{ resize: { width: 1500 } }],
         {
-          compress: 0.9,
+          compress: 0.8,
           format: ImageManipulator.SaveFormat.JPEG,
           base64: true,
         }
       );
 
-      console.log('Image processed successfully');
+      // Verificar tamaño del base64
+      let imageSize = manipResult.base64 ? (manipResult.base64.length * 3) / 4 : 0;
+      console.log('Initial image size:', (imageSize / 1024 / 1024).toFixed(2), 'MB');
+
+      // Si la imagen sigue siendo muy grande, comprimir más
+      if (imageSize > MAX_IMAGE_SIZE) {
+        console.log('Image too large, attempting further compression');
+        manipResult = await ImageManipulator.manipulateAsync(
+          uri,
+          [{ resize: { width: 1000 } }],
+          {
+            compress: 0.6,
+            format: ImageManipulator.SaveFormat.JPEG,
+            base64: true,
+          }
+        );
+        
+        imageSize = manipResult.base64 ? (manipResult.base64.length * 3) / 4 : 0;
+        console.log('Compressed image size:', (imageSize / 1024 / 1024).toFixed(2), 'MB');
+      }
+
+      if (imageSize > MAX_IMAGE_SIZE) {
+        throw new Error('Image too large even after compression');
+      }
+
+      console.log('Image optimization successful');
       return {
         uri: manipResult.uri,
         base64: manipResult.base64,
         mimeType: 'image/jpeg'
       };
     } catch (error) {
-      console.error('Error processing image:', error);
-      throw new Error('Failed to process image');
+      console.error('Error optimizing image:', error);
+      throw new Error('Failed to optimize image');
+    }
+  };
+
+  const handleImageSelection = async (
+    imagePickerFn: () => Promise<ImagePicker.ImagePickerResult>
+  ) => {
+    try {
+      const result = await imagePickerFn();
+
+      if (!result.canceled && result.assets[0]) {
+        setLoading(true);
+        const optimizedImage = await optimizeImage(result.assets[0].uri);
+        setImage(optimizedImage);
+      }
+    } catch (error: any) {
+      console.error('Error handling image:', error);
+      Alert.alert(
+        'Error',
+        error.message === 'Image too large even after compression'
+          ? 'The image is too large. Please try a smaller image or take a new photo.'
+          : 'Failed to process image. Please try again.'
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'Sorry, we need camera roll permissions to make this work!');
+      Alert.alert(
+        'Permission Required', 
+        'We need access to your photos to continue.',
+        [
+          { text: 'Cancel' },
+          { 
+            text: 'Open Settings', 
+            onPress: () => Platform.OS === 'ios' ? Linking.openURL('app-settings:') : Linking.openSettings() 
+          }
+        ]
+      );
       return;
     }
 
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
+    await handleImageSelection(() => 
+      ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         quality: 1,
         base64: false,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const processedImage = await processImage(result.assets[0].uri);
-        setImage(processedImage);
-      }
-    } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image');
-    }
+      })
+    );
   };
 
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'Sorry, we need camera permissions to make this work!');
+      Alert.alert(
+        'Permission Required',
+        'We need access to your camera to continue.',
+        [
+          { text: 'Cancel' },
+          { 
+            text: 'Open Settings', 
+            onPress: () => Platform.OS === 'ios' ? Linking.openURL('app-settings:') : Linking.openSettings() 
+          }
+        ]
+      );
       return;
     }
 
-    try {
-      const result = await ImagePicker.launchCameraAsync({
+    await handleImageSelection(() =>
+      ImagePicker.launchCameraAsync({
         allowsEditing: true,
         quality: 1,
         base64: false,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const processedImage = await processImage(result.assets[0].uri);
-        setImage(processedImage);
-      }
-    } catch (error) {
-      console.error('Error taking photo:', error);
-      Alert.alert('Error', 'Failed to take photo');
-    }
+      })
+    );
   };
 
   const handleSubmit = async () => {
@@ -138,32 +207,28 @@ const Upload = ({ navigation }: Props) => {
       return;
     }
 
-    if (serverStatus !== 'connected') {
-      Alert.alert('Error', 'Server is not connected. Please try again later.');
-      return;
-    }
-
     setLoading(true);
 
     try {
-      console.log('Sending request to:', `${API_URL}/api/process-receipt`);
+      console.log('Starting receipt processing');
       const response = await axios.post(
         `${API_URL}/api/process-receipt`,
         {
           imageData: image.base64,
-          mimeType: image.mimeType || 'image/jpeg'
+          mimeType: image.mimeType
         },
         {
           headers: {
             'Content-Type': 'application/json',
           },
           timeout: 60000,
+          validateStatus: status => status < 500, // Permitir manejar errores 4xx
         }
       );
 
-      console.log('Server response:', response.data);
+      console.log('Receipt processing response status:', response.status);
 
-      if (response.data?.success) {
+      if (response.status === 200 && response.data?.success) {
         await AsyncStorage.setItem(
           'extractedBillData',
           JSON.stringify(response.data.data)
@@ -173,47 +238,66 @@ const Upload = ({ navigation }: Props) => {
         throw new Error(response.data?.error || 'Failed to process receipt');
       }
     } catch (error: any) {
-      console.error('Error details:', error.response || error);
+      console.error('Receipt processing error:', error.response || error);
       
       let errorMessage = 'Failed to process the receipt. Please try again.';
-      
-      if (error.response?.status === 400) {
-        errorMessage = 'Invalid image data. Please try another image.';
-      } else if (error.response?.status === 500) {
-        errorMessage = 'Server error processing the receipt. Please try again later.';
-      } else if (error.code === 'ECONNABORTED') {
-        errorMessage = 'Request timed out. Please try again with a clearer image.';
-      } else if (error.code === 'ERR_NETWORK') {
-        errorMessage = 'Network error. Please check your connection and try again.';
-        // Trigger a server status check
-        checkServerStatus();
+      let retryAction = null;
+
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 400) {
+          errorMessage = 'The image could not be processed. Please try another image or take a clearer photo.';
+        } else if (error.response?.status === 413) {
+          errorMessage = 'The image is too large. Please try again with a smaller image.';
+        } else if (error.code === 'ECONNABORTED') {
+          errorMessage = 'The request timed out. Please try again with a clearer image.';
+        } else if (error.code === 'ERR_NETWORK') {
+          errorMessage = 'Network connection error. Please check your internet connection.';
+          retryAction = checkServerStatus;
+        }
       }
 
-      Alert.alert('Error', errorMessage);
+      Alert.alert(
+        'Error',
+        errorMessage,
+        retryAction ? [
+          { text: 'Retry', onPress: retryAction },
+          { text: 'OK' }
+        ] : undefined
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  // ... (mantener los mismos estilos)
+
   return (
     <View style={styles.container}>
       {serverStatus === 'checking' && (
         <View style={styles.statusBanner}>
+          <ActivityIndicator size="small" color="#4F46E5" />
           <Text style={styles.statusText}>Checking server connection...</Text>
         </View>
       )}
+      
       {serverStatus === 'disconnected' && (
         <TouchableOpacity 
-          style={styles.statusBanner} 
+          style={[styles.statusBanner, { backgroundColor: '#FEE2E2' }]} 
           onPress={checkServerStatus}
         >
-          <Text style={styles.statusText}>Server disconnected - Tap to retry</Text>
+          <Icon name="alert-circle" size={20} color="#DC2626" />
+          <Text style={[styles.statusText, { color: '#DC2626' }]}>
+            Server disconnected - Tap to retry
+          </Text>
         </TouchableOpacity>
       )}
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity 
-          style={styles.cameraButton} 
+          style={[
+            styles.cameraButton,
+            (loading || serverStatus !== 'connected') && styles.buttonDisabled
+          ]} 
           onPress={takePhoto}
           disabled={loading || serverStatus !== 'connected'}
         >
@@ -222,7 +306,10 @@ const Upload = ({ navigation }: Props) => {
         </TouchableOpacity>
 
         <TouchableOpacity 
-          style={styles.uploadButton} 
+          style={[
+            styles.uploadButton,
+            (loading || serverStatus !== 'connected') && styles.buttonDisabled
+          ]} 
           onPress={pickImage}
           disabled={loading || serverStatus !== 'connected'}
         >
@@ -244,7 +331,9 @@ const Upload = ({ navigation }: Props) => {
       {loading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4F46E5" />
-          <Text style={styles.loadingText}>Processing receipt...</Text>
+          <Text style={styles.loadingText}>
+            {image ? 'Processing receipt...' : 'Processing image...'}
+          </Text>
         </View>
       )}
 
@@ -263,6 +352,7 @@ const Upload = ({ navigation }: Props) => {
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {
