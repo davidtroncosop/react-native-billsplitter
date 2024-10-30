@@ -14,7 +14,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:19006',
   'exp://192.168.100.13:19000',
-  // Añade aquí el dominio de tu app en producción cuando lo tengas
+  'https://react-native-billsplitter-production.up.railway.app',
+  'http://react-native-billsplitter-production.up.railway.app',
   process.env.CLIENT_URL, // URL del cliente en producción
 ];
 
@@ -34,8 +35,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Aumentar el límite para imágenes grandes
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Middleware de logging mejorado
 app.use((req, res, next) => {
@@ -54,6 +56,18 @@ app.get('/health', (req, res) => {
     serverIP: req.socket.localAddress,
     environment: process.env.NODE_ENV || 'development'
   });
+});
+
+// Middleware para manejar errores de payload muy grande
+app.use((err, req, res, next) => {
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({
+      success: false,
+      message: 'Payload too large. Maximum size is 50MB',
+      timestamp: new Date().toISOString()
+    });
+  }
+  next(err);
 });
 
 app.use('/api', receiptRoutes);
