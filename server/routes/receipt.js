@@ -13,13 +13,14 @@ if (!GEMINI_API_KEY) {
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-// Function to clean JSON text
+// Función para limpiar el texto JSON
 const cleanJsonText = (text) => {
+  // Eliminar los marcadores de código markdown y caracteres especiales
   return text
     .replace(/```json/g, '')
     .replace(/```/g, '')
-    .replace(/[\u201C\u201D]/g, '"')
-    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"') // Reemplazar comillas tipográficas
+    .replace(/[\u2018\u2019]/g, "'") // Reemplazar comillas simples tipográficas
     .trim();
 };
 
@@ -37,9 +38,10 @@ router.post('/process-receipt', async (req, res) => {
       });
     }
 
-    const sizeInMB = (imageData.length * 3 / 4) / (1024 * 1024);
+    // Check image data size
+    const sizeInMB = (imageData.length * 3/4) / (1024*1024); // Convert base64 size to MB
     console.log(`Image size: ${sizeInMB.toFixed(2)} MB`);
-
+    
     if (sizeInMB > 4) {
       console.error('Image too large:', sizeInMB.toFixed(2), 'MB');
       return res.status(400).json({
@@ -49,6 +51,7 @@ router.post('/process-receipt', async (req, res) => {
       });
     }
 
+    // Validate base64 format
     if (!imageData.match(/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/)) {
       console.error('Invalid base64 format');
       return res.status(400).json({ 
@@ -59,7 +62,34 @@ router.post('/process-receipt', async (req, res) => {
     }
 
     const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
-    const prompt = `...`; // [Use the previous prompt string here]
+
+    const prompt = `
+You are a receipt analysis expert. Please analyze this receipt image carefully and extract the following information:
+- All individual items with their exact names as shown
+- The precise quantity of each item
+- The exact price for each item
+- The total amount of the receipt
+
+Important rules:
+1. Extract prices exactly as they appear, including currency symbols
+2. Keep item names exactly as written on the receipt
+3. Include all items, even if unclear
+4. Maintain exact quantities as shown
+5. Preserve the exact total amount
+
+Return the data in this exact JSON structure:
+{
+  "items": [
+    {
+      "name": "string",
+      "quantity": number,
+      "price": "string"
+    }
+  ],
+  "total": "string"
+}
+
+Only return the JSON object, no additional text or explanations.`;
 
     const imageParts = [
       {
@@ -83,29 +113,29 @@ router.post('/process-receipt', async (req, res) => {
         throw new Error('No response from Gemini API');
       }
 
-      const response = await result.response;
+      // Imprime el contenido completo de la respuesta para ver detalles
+      console.log('Full Gemini API response:', JSON.stringify(result, null, 2));
       
-      if (!response) {
-        throw new Error('Empty response from Gemini API');
-      }
-
+      const response = await result.response;
       const text = response.text();
-      console.log('Raw response:', text);
 
       if (!text) {
         throw new Error('Empty text from Gemini API response');
       }
 
+      // Limpiar el texto antes de parsearlo
       const cleanedText = cleanJsonText(text);
       console.log('Cleaned text:', cleanedText);
 
       try {
         const extractedData = JSON.parse(cleanedText);
         
+        // Validación adicional de la estructura del JSON
         if (!extractedData.items || !Array.isArray(extractedData.items) || !extractedData.total) {
           throw new Error('Invalid JSON structure: missing required fields');
         }
 
+        // Validación de cada item
         extractedData.items.forEach((item, index) => {
           if (!item.name || typeof item.quantity !== 'number' || !item.price) {
             throw new Error(`Invalid item structure at index ${index}`);
@@ -118,6 +148,7 @@ router.post('/process-receipt', async (req, res) => {
         console.error('JSON parse error:', parseError.message);
         console.error('Cleaned text that failed to parse:', cleanedText);
         
+        // Intento de recuperación si el JSON está incompleto
         const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           try {
