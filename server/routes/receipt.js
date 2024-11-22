@@ -84,7 +84,7 @@ router.post('/process-receipt', async (req, res) => {
       });
     }
     console.log('Creating Gemini model instance...');
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     const prompt = `You are an advanced receipt optical character recognition (OCR) and data extraction expert. Your task is to meticulously analyze the provided receipt image and accurately extract all relevant information. 
     
