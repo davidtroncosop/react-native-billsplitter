@@ -86,52 +86,67 @@ router.post('/process-receipt', async (req, res) => {
     console.log('Creating Gemini model instance...');
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
-    const prompt = `You are an advanced receipt optical character recognition (OCR) and data extraction expert. Your task is to meticulously analyze the provided receipt image and accurately extract all relevant information. 
-    
-    Please perform the following:
-    
-    1. **Item Extraction:** Identify and list every individual item purchased. Transcribe the item names precisely as they appear on the receipt, preserving all wording, spelling, abbreviations, and special characters.
-    
-    2. **Quantity Determination:** Determine the exact quantity of each item purchased.
-    
-    3. **Price Extraction:** Extract the exact price for each item, maintaining the original currency symbol and format. Recognize and preserve any currency indicators (€, £, ¥, $, etc.) and their placement (prefix or suffix).
-    
-    4. **Currency Identification:** Identify the primary currency used in the receipt. Look for currency symbols, abbreviations (USD, EUR, GBP, etc.), or contextual clues about the currency.
-    
-    5. **Total Calculation:** Identify and extract the total amount shown on the receipt, including the currency symbol and formatting.
-    
-    Important Considerations:
-    
-    * **Multi-Currency Support:** Pay special attention to currency symbols and formats used in different regions:
-      - Dollar variants: US$, CA$, AU$, etc.
-      - Euro symbol: € (prefix or suffix depending on locale)
-      - British Pound: £
-      - Japanese Yen: ¥
-      - Other currencies and their local formatting
-    * **Regional Number Formats:** Consider different decimal and thousand separators (e.g., 1.234,56 vs 1,234.56)
-    * **OCR Imperfections:** Use your expertise to interpret and correct minor OCR errors while preserving the original currency and formatting
-    * **No Assumptions:** Extract only what is explicitly visible on the receipt
-    
-    Output Format:
-    
-    Return the extracted data in the following JSON structure:
-    
-    \`\`\`json
+    const prompt = `Eres un experto en reconocimiento óptico de caracteres (OCR) y extracción de datos de recibos. Tu tarea es analizar meticulosamente la imagen del recibo proporcionada y extraer con precisión toda la información relevante.
+
+Por favor, realiza lo siguiente:
+
+1. **Extracción de Artículos:** 
+   - Identifica y lista cada artículo comprado
+   - Transcribe los nombres de los artículos exactamente como aparecen en el recibo
+   - Preserva todas las palabras, ortografía, abreviaturas y caracteres especiales
+
+2. **Determinación de Cantidad:**
+   - Determina la cantidad exacta de cada artículo comprado
+   - La cantidad debe ser un número
+
+3. **Extracción de Precios:**
+   - Extrae el precio exacto de cada artículo
+   - IMPORTANTE: Mantén el formato original EXACTAMENTE como aparece en el recibo
+   - NO agregues ni quites símbolos de moneda
+   - NO modifiques los separadores decimales o de miles
+   - Si el precio aparece como "1.234,56" déjalo así
+   - Si el precio aparece como "1,234.56" déjalo así
+   - Si el precio aparece sin símbolo de moneda, déjalo sin símbolo
+   - Si el símbolo de moneda está después del número (ej: "100€"), mantenlo así
+   - Si el símbolo de moneda está antes del número (ej: "£100"), mantenlo así
+
+4. **Identificación de Moneda:**
+   - Identifica la moneda utilizada en el recibo
+   - Puede ser un símbolo (€, £, ¥) o un código (EUR, GBP, JPY)
+   - Si no hay símbolo de moneda visible en el recibo, usa el código de moneda que mejor corresponda según el contexto
+   - IMPORTANTE: NO ASUMAS que es dólares ($) por defecto
+
+5. **Cálculo del Total:**
+   - Identifica y extrae el monto total mostrado en el recibo
+   - Mantén EXACTAMENTE el mismo formato que aparece en el recibo
+   - No modifiques ni agregues símbolos de moneda al total
+
+Formato de Salida:
+
+\`\`\`json
+{
+  "items": [
     {
-      "items": [
-        {
-          "name": "string", 
-          "quantity": 1,
-          "price": "string" 
-        }
-      ],
-      "currency": "string",
-      "total": "string"
+      "name": "string", 
+      "quantity": 1,
+      "price": "string"  // EXACTAMENTE como aparece en el recibo
     }
-    \`\`\`
-    
-    Note: The "currency" field should contain the identified currency symbol or code (e.g., "$", "€", "USD", "EUR").
-    Important: Respond only with the JSON object. Do not include any additional text, explanations, or conversational elements.`;
+  ],
+  "currency": "string", // Símbolo o código de moneda identificado
+  "total": "string"     // EXACTAMENTE como aparece en el recibo
+}
+\`\`\`
+
+Ejemplos de formatos válidos para precios y total:
+- "1.234,56"
+- "1,234.56"
+- "100€"
+- "£100"
+- "1234.56"
+- "1234,56"
+- "100"
+
+IMPORTANTE: Responde SOLO con el objeto JSON. No incluyas texto adicional, explicaciones o elementos conversacionales.`;
 
     const imageParts = [
       {
