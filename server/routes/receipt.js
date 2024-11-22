@@ -103,23 +103,19 @@ router.post('/process-receipt', async (req, res) => {
        - Extrae el precio exacto de cada artículo
        - Convierte el precio a un número decimal
        - Elimina cualquier símbolo de moneda
-       - Usa el punto como separador decimal
+       - REGLAS PARA SEPARADORES:
+         - Si hay 3 dígitos después del separador (punto o coma), es una coma decimal
+         - Si hay 2 dígitos después del separador (punto o coma), es un punto decimal
        - Ejemplos de conversión:
-         - "1.234,56" → 1234.56
-         - "1,234.56" → 1234.56
-         - "100€" → 100.00
-         - "£100" → 100.00
-         - "1234.56" → 1234.56
-         - "1234,56" → 1234.56
+         - "1.234,567" → 1234.567 (3 dígitos → coma decimal)
+         - "1,234.56" → 1234.56 (2 dígitos → punto decimal)
+         - "100.567" → 100.567 (3 dígitos → punto es separador de miles)
+         - "100,56" → 100.56 (2 dígitos → coma es decimal)
+         - "1234.56" → 1234.56 (2 dígitos → punto decimal)
+         - "1234,567" → 1234.567 (3 dígitos → coma decimal)
          - "100" → 100.00
     
-    4. **Identificación de Moneda:**
-       - Identifica la moneda utilizada en el recibo
-       - Puede ser un símbolo (€, £, ¥) o un código (EUR, GBP, JPY)
-       - Si no hay símbolo de moneda visible en el recibo, usa el código de moneda que mejor corresponda según el contexto
-       - IMPORTANTE: NO ASUMAS que es dólares ($) por defecto
-    
-    5. **Cálculo del Total:**
+    4. **Cálculo del Total:**
        - Identifica y extrae el monto total mostrado en el recibo
        - Convierte el total a un número decimal siguiendo las mismas reglas que los precios individuales
        - Elimina cualquier símbolo de moneda
@@ -132,11 +128,10 @@ router.post('/process-receipt', async (req, res) => {
         {
           "name": "string",
           "quantity": 1,
-          "price": 0.00    // Número decimal con dos lugares decimales
+          "price": 0.00    // Número decimal
         }
       ],
-      "currency": "string", // Símbolo o código de moneda identificado
-      "total": 0.00        // Número decimal con dos lugares decimales
+      "total": 0.00        // Número decimal
     }
     \`\`\`
     
@@ -146,7 +141,7 @@ router.post('/process-receipt', async (req, res) => {
         {
           "name": "Café",
           "quantity": 2,
-          "price": 3.50
+          "price": 3.567
         },
         {
           "name": "Croissant",
@@ -154,12 +149,11 @@ router.post('/process-receipt', async (req, res) => {
           "price": 2.75
         }
       ],
-      "currency": "EUR",
-      "total": 9.75
+      "total": 9.884
     }
     
     IMPORTANTE: Responde SOLO con el objeto JSON. No incluyas texto adicional, explicaciones o elementos conversacionales.`;
-    
+
     const imageParts = [
       {
         inlineData: {
