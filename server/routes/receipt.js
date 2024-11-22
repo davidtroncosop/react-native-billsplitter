@@ -109,18 +109,18 @@ router.post('/process-receipt', async (req, res) => {
     
     3. **Extracción de Precios:**
        - Extrae el precio exacto de cada artículo
-       - Convierte el precio a un número decimal usando el formato estadounidense (coma para miles, punto para decimales)
+       - Convierte el precio a un número decimal usando el punto como separador decimal (sin comas para miles).
        - Elimina cualquier símbolo de moneda
        - REGLAS IMPORTANTES PARA PRECIOS:
-         - Si ves un número como "3.700", debe convertirse a "3,700.00"
-         - Si ves un número como "24.990", debe convertirse a "24,990.00"
-         - El punto en estos casos NO es un separador decimal, sino un separador de miles que debe convertirse a coma
+         - Si ves un número como "3.700", debe convertirse a "3700.00"
+         - Si ves un número como "24.990", debe convertirse a "24990.00"
+         - El punto en estos casos NO es un separador decimal, sino un separador de miles que debe ser eliminado.
          - Solo cuando hay exactamente dos dígitos después del punto (como en "24.90"), el punto es realmente decimal
        - Ejemplos de conversión:
-         - "3.700" → 3,700.00 (punto se convierte a coma, se agregan decimales)
-         - "24.990" → 24,990.00 (punto se convierte a coma, se agregan decimales)
-         - "5.400" → 5,400.00 (punto se convierte a coma, se agregan decimales)
-         - "7.990" → 7,990.00 (punto se convierte a coma, se agregan decimales)
+         - "3.700" → 3700.00 (punto se elimina, se agregan decimales)
+         - "24.990" → 24990.00 (punto se elimina, se agregan decimales)
+         - "5.400" → 5400.00 (punto se elimina, se agregan decimales)
+         - "7.990" → 7990.00 (punto se elimina, se agregan decimales)
          - "3.50" → 3.50 (punto es decimal porque solo hay dos dígitos después)
          - "100" → 100.00 (agregar decimales)
     
@@ -137,10 +137,10 @@ router.post('/process-receipt', async (req, res) => {
         {
           "name": "string",
           "quantity": 1,
-          "price": 0.00    // Número en formato estadounidense
+          "price": 0.00    // Número usando punto como separador decimal
         }
       ],
-      "total": 0.00        // Número en formato estadounidense
+      "total": 0.00        // Número usando punto como separador decimal
     }
     \`\`\`
     
@@ -150,20 +150,20 @@ router.post('/process-receipt', async (req, res) => {
         {
           "name": "Jugo Limonada",
           "quantity": 1,
-          "price": 3,700.00
+          "price": 3700.00
         },
         {
           "name": "Papas Infarto",
           "quantity": 1,
-          "price": 24,990.00
+          "price": 24990.00
         }
       ],
-      "total": 28,690.00
+      "total": 28690.00
     }
     
     IMPORTANTE: 
     - Responde SOLO con el objeto JSON
-    - Asegúrate de que todos los precios que terminen en tres ceros después del punto (ejemplo: "3.700") sean convertidos a formato con coma y dos decimales (ejemplo: "3,700.00")`;
+    - Asegúrate de que todos los precios que terminen en tres ceros después del punto (ejemplo: "3.700") sean convertidos a formato sin coma y con dos decimales (ejemplo: "3700.00")`;
     
     const imageParts = [
       {
