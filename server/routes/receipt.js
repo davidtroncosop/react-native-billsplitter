@@ -21,28 +21,24 @@ const cleanJsonText = (text) => {
     .replace(/```/g, '')
     .replace(/[\u201C\u201D]/g, '"')
     .replace(/[\u2018\u2019]/g, "'")
-    // Agregar conversión de números con punto como separador de miles
-    .replace(/(\d)\.(\d{3})/g, '$1,$2')
-    .trim();
+    .trim(); // Eliminada la conversión incorrecta que introducía comas
 };
 
 // Función para validar la estructura del JSON
 const validateJsonStructure = (data) => {
-  if (!data.items || !Array.isArray(data.items) || !data.total || !data.currency) {
+  if (!data.items || !Array.isArray(data.items) || !data.total) { // 'currency' eliminado como obligatorio
     throw new Error('Invalid JSON structure: missing required fields');
   }
 
   data.items.forEach((item, index) => {
-    if (!item.name || typeof item.quantity !== 'number') {
+    if (!item.name || typeof item.quantity !== 'number' || typeof item.price !== 'number') { // Verificar que price sea un número
       throw new Error(`Invalid item structure at index ${index}`);
     }
-    
-    // Convertir precio a número con dos decimales
-    item.price = parseFloat(item.price.toString().replace(/,/g, ''));
   });
 
-  // Convertir total
-  data.total = parseFloat(data.total.toString().replace(/,/g, ''));
+  if (typeof data.total !== 'number') { // Verificar que total sea un número
+    throw new Error('Invalid total value');
+  }
 
   return true;
 };
@@ -200,7 +196,7 @@ router.post('/process-receipt', async (req, res) => {
 
     try {
       const extractedData = JSON.parse(cleanedText);
-      validateJsonStructure(extractedData);
+      validateJsonStructure
       
       console.log('Successfully processed receipt:', extractedData);
       res.json({ 
