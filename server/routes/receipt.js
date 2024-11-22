@@ -88,72 +88,72 @@ router.post('/process-receipt', async (req, res) => {
     
     const prompt = `Eres un experto en reconocimiento óptico de caracteres (OCR) y extracción de datos de recibos. Tu tarea es analizar meticulosamente la imagen del recibo proporcionada y extraer con precisión toda la información relevante.
 
-    Por favor, realiza lo siguiente:
-    
-    1. **Extracción de Artículos:** 
-       - Identifica y lista cada artículo comprado
-       - Transcribe los nombres de los artículos exactamente como aparecen en el recibo
-       - Preserva todas las palabras, ortografía, abreviaturas y caracteres especiales
-    
-    2. **Determinación de Cantidad:**
-       - Determina la cantidad exacta de cada artículo comprado
-       - La cantidad debe ser un número
-    
-    3. **Extracción de Precios:**
-       - Extrae el precio exacto de cada artículo
-       - Convierte el precio a un número decimal
-       - Elimina cualquier símbolo de moneda
-       - REGLAS PARA SEPARADORES:
-         - Si hay 3 dígitos después del separador (punto o coma), es una coma decimal
-         - Si hay 2 dígitos después del separador (punto o coma), es un punto decimal
-       - Ejemplos de conversión:
-         - "1.234,567" → 1234.567 (3 dígitos → coma decimal)
-         - "1,234.56" → 1234.56 (2 dígitos → punto decimal)
-         - "100.567" → 100.567 (3 dígitos → punto es separador de miles)
-         - "100,56" → 100.56 (2 dígitos → coma es decimal)
-         - "1234.56" → 1234.56 (2 dígitos → punto decimal)
-         - "1234,567" → 1234.567 (3 dígitos → coma decimal)
-         - "100" → 100.00
-    
-    4. **Cálculo del Total:**
-       - Identifica y extrae el monto total mostrado en el recibo
-       - Convierte el total a un número decimal siguiendo las mismas reglas que los precios individuales
-       - Elimina cualquier símbolo de moneda
-    
-    Formato de Salida:
-    
-    \`\`\`json
-    {
-      "items": [
-        {
-          "name": "string",
-          "quantity": 1,
-          "price": 0.00    // Número decimal
-        }
-      ],
-      "total": 0.00        // Número decimal
-    }
-    \`\`\`
-    
-    Ejemplos de formato de salida:
-    {
-      "items": [
-        {
-          "name": "Café",
-          "quantity": 2,
-          "price": 3.567
-        },
-        {
-          "name": "Croissant",
-          "quantity": 1,
-          "price": 2.75
-        }
-      ],
-      "total": 9.884
-    }
-    
-    IMPORTANTE: Responde SOLO con el objeto JSON. No incluyas texto adicional, explicaciones o elementos conversacionales.`;
+Por favor, realiza lo siguiente:
 
+1. **Extracción de Artículos:** 
+   - Identifica y lista cada artículo comprado
+   - Transcribe los nombres de los artículos exactamente como aparecen en el recibo
+   - Preserva todas las palabras, ortografía, abreviaturas y caracteres especiales
+
+2. **Determinación de Cantidad:**
+   - Determina la cantidad exacta de cada artículo comprado
+   - La cantidad debe ser un número
+
+3. **Extracción de Precios:**
+   - Extrae el precio exacto de cada artículo
+   - Convierte el precio a un número decimal usando el formato estadounidense (coma para miles, punto para decimales)
+   - Elimina cualquier símbolo de moneda
+   - REGLAS PARA SEPARADORES:
+     - Si hay 3 dígitos después del separador, es un punto decimal y los números después son decimales
+     - Si hay 2 dígitos después del separador, es un punto decimal
+     - Las comas siempre son separadores de miles
+   - Ejemplos de conversión:
+     - "1.234,567" → 1,234.567 (3 dígitos → convertir a punto decimal)
+     - "1,234.56" → 1,234.56 (formato correcto)
+     - "100.567" → 100.567 (3 dígitos después del punto → decimales)
+     - "100,56" → 100.56 (convertir coma a punto decimal)
+     - "1234.56" → 1,234.56 (agregar coma de miles)
+     - "1234,567" → 1,234.567 (convertir coma a punto decimal)
+     - "100" → 100.00 (agregar decimales)
+
+4. **Cálculo del Total:**
+   - Identifica y extrae el monto total mostrado en el recibo
+   - Convierte el total a un número decimal siguiendo las mismas reglas que los precios individuales
+   - Elimina cualquier símbolo de moneda
+
+Formato de Salida:
+
+\`\`\`json
+{
+  "items": [
+    {
+      "name": "string",
+      "quantity": 1,
+      "price": 0.00    // Número decimal en formato estadounidense
+    }
+  ],
+  "total": 0.00        // Número decimal en formato estadounidense
+}
+\`\`\`
+
+Ejemplos de formato de salida:
+{
+  "items": [
+    {
+      "name": "Café",
+      "quantity": 2,
+      "price": 1,234.567
+    },
+    {
+      "name": "Croissant",
+      "quantity": 1,
+      "price": 2.75
+    }
+  ],
+  "total": 3,471.884
+}
+
+IMPORTANTE: Responde SOLO con el objeto JSON. No incluyas texto adicional, explicaciones o elementos conversacionales.`;
     const imageParts = [
       {
         inlineData: {
