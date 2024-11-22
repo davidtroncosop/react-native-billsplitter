@@ -83,38 +83,47 @@ router.post('/process-receipt', async (req, res) => {
         details: `Image size (${sizeInMB.toFixed(2)}MB) exceeds 4MB limit`
       });
     }
-
     console.log('Creating Gemini model instance...');
-    const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
-
-    const prompt = `
-You are a receipt analysis expert. Please analyze this receipt image carefully and extract the following information:
-- All individual items with their exact names as shown
-- The precise quantity of each item
-- The exact price for each item
-- The total amount of the receipt
-
-Important rules:
-1. Extract prices exactly as they appear, including currency symbols
-2. Keep item names exactly as written on the receipt
-3. Include all items, even if unclear
-4. Maintain exact quantities as shown
-5. Preserve the exact total amount
-
-Return the data in this exact JSON structure:
-{
-  "items": [
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+    
+    const prompt = `You are an advanced receipt optical character recognition (OCR) and data extraction expert. Your task is to meticulously analyze the provided receipt image and accurately extract all relevant information. 
+    
+    Please perform the following:
+    
+    1. **Item Extraction:** Identify and list every individual item purchased. Transcribe the item names precisely as they appear on the receipt, preserving all wording, spelling, abbreviations, and special characters.
+    
+    2. **Quantity Determination:** Determine the exact quantity of each item purchased.
+    
+    3. **Price Extraction:** Extract the exact price for each item, including the currency symbol and any formatting (e.g., decimal places, commas). 
+    
+    4. **Total Calculation:** Identify and extract the total amount shown on the receipt, including the currency symbol.
+    
+    Important Considerations:
+    
+    * **OCR Imperfections:**  The image may have imperfections or distortions. Use your expertise to interpret and correct minor OCR errors to the best of your ability, but prioritize representing the text as it appears.
+    * **Ambiguous Entries:** If any item names or prices are unclear or illegible, include your best interpretation but flag them with a note (e.g., "[illegible]" or "[uncertain]").
+    * **Layout Variations:** Receipts come in many formats. Be flexible in your analysis and adapt to different layouts, including multiple columns, varying font sizes, and different placements of totals.
+    * **No Assumptions:**  Do not make assumptions about the data. Extract only what is explicitly visible on the receipt.
+    
+    Output Format:
+    
+    Return the extracted data in the following JSON structure:
+    
+    \`\`\`json
     {
-      "name": "string",
-      "quantity": number,
-      "price": "string"
+      "items": [
+        {
+          "name": "string", 
+          "quantity": 1,
+          "price": "string" 
+        }
+        // ... more items if applicable
+      ],
+      "total": "string"
     }
-  ],
-  "total": "string"
-}
-
-Only return the JSON object, no additional text or explanations.`;
-
+    \`\`\`
+    
+    Important: Respond only with the JSON object. Do not include any additional text, explanations, or conversational elements.`;
     const imageParts = [
       {
         inlineData: {
