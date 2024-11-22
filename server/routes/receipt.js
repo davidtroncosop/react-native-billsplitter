@@ -21,6 +21,8 @@ const cleanJsonText = (text) => {
     .replace(/```/g, '')
     .replace(/[\u201C\u201D]/g, '"')
     .replace(/[\u2018\u2019]/g, "'")
+    // Agregar conversión de números con punto como separador de miles
+    .replace(/(\d)\.(\d{3})/g, '$1,$2')
     .trim();
 };
 
@@ -31,10 +33,16 @@ const validateJsonStructure = (data) => {
   }
 
   data.items.forEach((item, index) => {
-    if (!item.name || typeof item.quantity !== 'number' || !item.price) {
+    if (!item.name || typeof item.quantity !== 'number') {
       throw new Error(`Invalid item structure at index ${index}`);
     }
+    
+    // Convertir precio a número con dos decimales
+    item.price = parseFloat(item.price.toString().replace(/,/g, ''));
   });
+
+  // Convertir total
+  data.total = parseFloat(data.total.toString().replace(/,/g, ''));
 
   return true;
 };
