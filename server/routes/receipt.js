@@ -26,7 +26,7 @@ const cleanJsonText = (text) => {
 
 // Función para validar la estructura del JSON
 const validateJsonStructure = (data) => {
-  if (!data.items || !Array.isArray(data.items) || !data.total) {
+  if (!data.items || !Array.isArray(data.items) || !data.total || !data.currency) {
     throw new Error('Invalid JSON structure: missing required fields');
   }
 
@@ -94,16 +94,23 @@ router.post('/process-receipt', async (req, res) => {
     
     2. **Quantity Determination:** Determine the exact quantity of each item purchased.
     
-    3. **Price Extraction:** Extract the exact price for each item, including the currency symbol and any formatting (e.g., decimal places, commas). 
+    3. **Price Extraction:** Extract the exact price for each item, maintaining the original currency symbol and format. Recognize and preserve any currency indicators (€, £, ¥, $, etc.) and their placement (prefix or suffix).
     
-    4. **Total Calculation:** Identify and extract the total amount shown on the receipt, including the currency symbol.
+    4. **Currency Identification:** Identify the primary currency used in the receipt. Look for currency symbols, abbreviations (USD, EUR, GBP, etc.), or contextual clues about the currency.
+    
+    5. **Total Calculation:** Identify and extract the total amount shown on the receipt, including the currency symbol and formatting.
     
     Important Considerations:
     
-    * **OCR Imperfections:**  The image may have imperfections or distortions. Use your expertise to interpret and correct minor OCR errors to the best of your ability, but prioritize representing the text as it appears.
-    * **Ambiguous Entries:** If any item names or prices are unclear or illegible, include your best interpretation but flag them with a note (e.g., "[illegible]" or "[uncertain]").
-    * **Layout Variations:** Receipts come in many formats. Be flexible in your analysis and adapt to different layouts, including multiple columns, varying font sizes, and different placements of totals.
-    * **No Assumptions:**  Do not make assumptions about the data. Extract only what is explicitly visible on the receipt.
+    * **Multi-Currency Support:** Pay special attention to currency symbols and formats used in different regions:
+      - Dollar variants: US$, CA$, AU$, etc.
+      - Euro symbol: € (prefix or suffix depending on locale)
+      - British Pound: £
+      - Japanese Yen: ¥
+      - Other currencies and their local formatting
+    * **Regional Number Formats:** Consider different decimal and thousand separators (e.g., 1.234,56 vs 1,234.56)
+    * **OCR Imperfections:** Use your expertise to interpret and correct minor OCR errors while preserving the original currency and formatting
+    * **No Assumptions:** Extract only what is explicitly visible on the receipt
     
     Output Format:
     
@@ -117,13 +124,15 @@ router.post('/process-receipt', async (req, res) => {
           "quantity": 1,
           "price": "string" 
         }
-        // ... more items if applicable
       ],
+      "currency": "string",
       "total": "string"
     }
     \`\`\`
     
+    Note: The "currency" field should contain the identified currency symbol or code (e.g., "$", "€", "USD", "EUR").
     Important: Respond only with the JSON object. Do not include any additional text, explanations, or conversational elements.`;
+
     const imageParts = [
       {
         inlineData: {
