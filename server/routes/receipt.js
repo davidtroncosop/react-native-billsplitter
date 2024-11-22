@@ -88,66 +88,78 @@ router.post('/process-receipt', async (req, res) => {
     
     const prompt = `Eres un experto en reconocimiento óptico de caracteres (OCR) y extracción de datos de recibos. Tu tarea es analizar meticulosamente la imagen del recibo proporcionada y extraer con precisión toda la información relevante.
 
-Por favor, realiza lo siguiente:
-
-1. **Extracción de Artículos:** 
-   - Identifica y lista cada artículo comprado
-   - Transcribe los nombres de los artículos exactamente como aparecen en el recibo
-   - Preserva todas las palabras, ortografía, abreviaturas y caracteres especiales
-
-2. **Determinación de Cantidad:**
-   - Determina la cantidad exacta de cada artículo comprado
-   - La cantidad debe ser un número
-
-3. **Extracción de Precios:**
-   - Extrae el precio exacto de cada artículo
-   - IMPORTANTE: Mantén el formato original EXACTAMENTE como aparece en el recibo
-   - NO agregues ni quites símbolos de moneda
-   - NO modifiques los separadores decimales o de miles
-   - Si el precio aparece como "1.234,56" déjalo así
-   - Si el precio aparece como "1,234.56" déjalo así
-   - Si el precio aparece sin símbolo de moneda, déjalo sin símbolo
-   - Si el símbolo de moneda está después del número (ej: "100€"), mantenlo así
-   - Si el símbolo de moneda está antes del número (ej: "£100"), mantenlo así
-
-4. **Identificación de Moneda:**
-   - Identifica la moneda utilizada en el recibo
-   - Puede ser un símbolo (€, £, ¥) o un código (EUR, GBP, JPY)
-   - Si no hay símbolo de moneda visible en el recibo, usa el código de moneda que mejor corresponda según el contexto
-   - IMPORTANTE: NO ASUMAS que es dólares ($) por defecto
-
-5. **Cálculo del Total:**
-   - Identifica y extrae el monto total mostrado en el recibo
-   - Mantén EXACTAMENTE el mismo formato que aparece en el recibo
-   - No modifiques ni agregues símbolos de moneda al total
-
-Formato de Salida:
-
-\`\`\`json
-{
-  "items": [
+    Por favor, realiza lo siguiente:
+    
+    1. **Extracción de Artículos:** 
+       - Identifica y lista cada artículo comprado
+       - Transcribe los nombres de los artículos exactamente como aparecen en el recibo
+       - Preserva todas las palabras, ortografía, abreviaturas y caracteres especiales
+    
+    2. **Determinación de Cantidad:**
+       - Determina la cantidad exacta de cada artículo comprado
+       - La cantidad debe ser un número
+    
+    3. **Extracción de Precios:**
+       - Extrae el precio exacto de cada artículo
+       - Convierte el precio a un número decimal
+       - Elimina cualquier símbolo de moneda
+       - Usa el punto como separador decimal
+       - Ejemplos de conversión:
+         - "1.234,56" → 1234.56
+         - "1,234.56" → 1234.56
+         - "100€" → 100.00
+         - "£100" → 100.00
+         - "1234.56" → 1234.56
+         - "1234,56" → 1234.56
+         - "100" → 100.00
+    
+    4. **Identificación de Moneda:**
+       - Identifica la moneda utilizada en el recibo
+       - Puede ser un símbolo (€, £, ¥) o un código (EUR, GBP, JPY)
+       - Si no hay símbolo de moneda visible en el recibo, usa el código de moneda que mejor corresponda según el contexto
+       - IMPORTANTE: NO ASUMAS que es dólares ($) por defecto
+    
+    5. **Cálculo del Total:**
+       - Identifica y extrae el monto total mostrado en el recibo
+       - Convierte el total a un número decimal siguiendo las mismas reglas que los precios individuales
+       - Elimina cualquier símbolo de moneda
+    
+    Formato de Salida:
+    
+    \`\`\`json
     {
-      "name": "string", 
-      "quantity": 1,
-      "price": "string"  // EXACTAMENTE como aparece en el recibo
+      "items": [
+        {
+          "name": "string",
+          "quantity": 1,
+          "price": 0.00    // Número decimal con dos lugares decimales
+        }
+      ],
+      "currency": "string", // Símbolo o código de moneda identificado
+      "total": 0.00        // Número decimal con dos lugares decimales
     }
-  ],
-  "currency": "string", // Símbolo o código de moneda identificado
-  "total": "string"     // EXACTAMENTE como aparece en el recibo
-}
-\`\`\`
-
-Ejemplos de formatos válidos para precios y total:
-- "1.234,56"
-- "1,234.56"
-- "100€"
-- "£100"
-- "1234.56"
-- "1234,56"
-- "100"
-
-IMPORTANTE: Responde SOLO con el objeto JSON. No incluyas texto adicional, explicaciones o elementos conversacionales.`;
-
+    \`\`\`
+    
+    Ejemplos de formato de salida:
+    {
+      "items": [
+        {
+          "name": "Café",
+          "quantity": 2,
+          "price": 3.50
+        },
+        {
+          "name": "Croissant",
+          "quantity": 1,
+          "price": 2.75
+        }
+      ],
+      "currency": "EUR",
+      "total": 9.75
+    }
+    
+    IMPORTANTE: Responde SOLO con el objeto JSON. No incluyas texto adicional, explicaciones o elementos conversacionales.`;
+    
     const imageParts = [
       {
         inlineData: {
