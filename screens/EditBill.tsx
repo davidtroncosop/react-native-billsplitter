@@ -41,7 +41,8 @@ const EditBill: React.FC = () => {
           id: index + 1,
           name: item.name,
           quantity: Number(item.quantity) || 1,
-          price: parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0,
+          price: parseFloat(String(item.price).replace(/[^0-9.]/g, '')) || 0,
+
         })) || [];
         setItems(newItems);
         calculateTotal(newItems);
@@ -112,20 +113,20 @@ const EditBill: React.FC = () => {
         {items.map(item => (
           <View key={item.id} style={styles.itemRow}>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { marginRight: 8 }]}
               value={item.name}
               onChangeText={(value) => handleItemUpdate(item.id, 'name', value)}
               placeholder="Item name"
             />
             <TextInput
-              style={styles.numberInput}
+              style={[styles.numberInput, { marginRight: 8 }]}
               value={item.quantity.toString()}
               onChangeText={(value) => handleItemUpdate(item.id, 'quantity', value)}
               keyboardType="numeric"
               placeholder="Qty"
             />
             <TextInput
-              style={styles.numberInput}
+              style={[styles.numberInput, { marginRight: 8 }]}
               value={item.price.toFixed(2)}
               onChangeText={(value) => handleItemUpdate(item.id, 'price', value)}
               keyboardType="decimal-pad"
@@ -155,7 +156,7 @@ const EditBill: React.FC = () => {
         
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={styles.saveButton}
+            style={[styles.saveButton, { marginRight: 12 }]}
             onPress={handleSave}
           >
             <Text style={styles.buttonText}>Save Changes</Text>
@@ -186,7 +187,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
-    gap: 8,
   },
   input: {
     flex: 2,
@@ -241,7 +241,6 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     flexDirection: 'row',
-    gap: 12,
   },
   saveButton: {
     flex: 1,

@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   Alert,
   Share,
+  Platform,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -30,6 +31,12 @@ interface Person {
   equalSplit: number;
 }
 
+interface ExtractedItem {
+  name: string;
+  quantity: string;
+  price: string;
+}
+
 type SplitBillScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'SplitBill'>;
 
 const SplitBill: React.FC = () => {
@@ -44,8 +51,16 @@ const SplitBill: React.FC = () => {
   const [tipPercentage, setTipPercentage] = useState(10);
   const [tipAmount, setTipAmount] = useState(0);
   const [total, setTotal] = useState(0);
-  const [editingQuantity, setEditingQuantity] = useState<{[key: number]: string}>({});
-  const [editingPrice, setEditingPrice] = useState<{[key: number]: string}>({});
+  const [editingQuantity, setEditingQuantity] = useState<{ [key: number]: string }>({});
+  const [editingPrice, setEditingPrice] = useState<{ [key: number]: string }>({});
+
+  // Función para formatear números: comas para miles y puntos para decimales
+  const formatPrice = (amount: number): string => {
+    return amount.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
 
   useEffect(() => {
     loadBillData();
@@ -64,7 +79,7 @@ const SplitBill: React.FC = () => {
       const storedData = await AsyncStorage.getItem('extractedBillData');
       if (storedData) {
         const extractedData = JSON.parse(storedData);
-        const newItems = extractedData.items?.map((item: any, index: number) => ({
+        const newItems = extractedData.items?.map((item: ExtractedItem, index: number) => ({
           id: index + 1,
           name: item.name,
           quantity: parseFloat(item.quantity) || 1,
@@ -72,17 +87,17 @@ const SplitBill: React.FC = () => {
           assignedTo: [],
         })) || [];
         setItems(newItems);
-        
-        // Initialize editing states
-        const quantityState: {[key: number]: string} = {};
-        const priceState: {[key: number]: string} = {};
-        newItems.forEach(item => {
+
+        const quantityState: Record<number, string> = {};
+        const priceState: Record<number, string> = {};
+
+        newItems.forEach((item: BillItem) => {
           quantityState[item.id] = item.quantity.toString();
           priceState[item.id] = item.price.toString();
         });
         setEditingQuantity(quantityState);
         setEditingPrice(priceState);
-        
+
         calculateSubtotal(newItems);
       }
     } catch (error) {
@@ -138,13 +153,11 @@ const SplitBill: React.FC = () => {
   };
 
   const handleItemQuantityChange = (id: number, value: string) => {
-    // Update the editing state
     setEditingQuantity(prev => ({
       ...prev,
-      [id]: value
+      [id]: value,
     }));
 
-    // Only update the actual quantity if the value is valid
     const quantity = Math.max(1, Number(value) || 1);
     const updatedItems = items.map(item =>
       item.id === id ? { ...item, quantity } : item
@@ -154,13 +167,11 @@ const SplitBill: React.FC = () => {
   };
 
   const handleItemPriceChange = (id: number, value: string) => {
-    // Update the editing state
     setEditingPrice(prev => ({
       ...prev,
-      [id]: value
+      [id]: value,
     }));
 
-    // Only update the actual price if the value is valid
     const price = Math.max(0, Number(value) || 0);
     const updatedItems = items.map(item =>
       item.id === id ? { ...item, price } : item
@@ -183,12 +194,12 @@ const SplitBill: React.FC = () => {
 
   const calculateSplitTotals = () => {
     const newPeople = people.map(person => ({ ...person, total: 0 }));
-    
+
     items.forEach(item => {
       const itemTotal = item.price * item.quantity;
       const assignedCount = item.assignedTo.length || people.length;
       const splitAmount = itemTotal / assignedCount;
-      
+
       if (item.assignedTo.length === 0) {
         newPeople.forEach(person => {
           person.total += splitAmount;
@@ -224,13 +235,13 @@ const SplitBill: React.FC = () => {
   const handleShare = async () => {
     try {
       let message = `💰 Bill Split Summary 💰\n\n`;
-      message += `Subtotal: $${subtotal.toFixed(2)}\n`;
-      message += `Tip (${tipPercentage}%): $${tipAmount.toFixed(2)}\n`;
-      message += `Total: $${total.toFixed(2)}\n\n`;
+      message += `Subtotal: $${formatPrice(subtotal)}\n`;
+      message += `Tip (${tipPercentage}%): $${formatPrice(tipAmount)}\n`;
+      message += `Total: $${formatPrice(total)}\n\n`;
       message += `👥 Individual Splits:\n`;
-      
+
       people.forEach(person => {
-        message += `${person.name}: $${person.total.toFixed(2)}\n`;
+        message += `${person.name}: $${formatPrice(person.total)}\n`;
       });
 
       await Share.share({
@@ -248,9 +259,9 @@ const SplitBill: React.FC = () => {
         <View style={styles.totalsCard}>
           <View style={styles.totalsRow}>
             <Text style={styles.totalLabel}>Subtotal:</Text>
-            <Text style={styles.totalValue}>${subtotal.toFixed(2)}</Text>
+            <Text style={styles.totalValue}>${formatPrice(subtotal)}</Text>
           </View>
-          
+
           <View style={styles.totalsRow}>
             <View style={styles.tipContainer}>
               <Text style={styles.totalLabel}>Tip:</Text>
@@ -264,22 +275,21 @@ const SplitBill: React.FC = () => {
                 <Text style={styles.tipPercentage}>%</Text>
               </View>
             </View>
-            <Text style={styles.totalValue}>${tipAmount.toFixed(2)}</Text>
+            <Text style={styles.totalValue}>${formatPrice(tipAmount)}</Text>
           </View>
 
           <View style={[styles.totalsRow, styles.totalFinal]}>
             <Text style={[styles.totalLabel, styles.totalLabelFinal]}>Total:</Text>
-            <Text style={[styles.totalValue, styles.totalValueFinal]}>${total.toFixed(2)}</Text>
+            <Text style={[styles.totalValue, styles.totalValueFinal]}>
+              ${formatPrice(total)}
+            </Text>
           </View>
         </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>People</Text>
-            <TouchableOpacity
-              onPress={handleAddPerson}
-              style={styles.addButton}
-            >
+            <TouchableOpacity onPress={handleAddPerson} style={styles.addButton}>
               <Text style={styles.buttonText}>Add Person</Text>
             </TouchableOpacity>
           </View>
@@ -293,10 +303,10 @@ const SplitBill: React.FC = () => {
                 placeholder="Enter name"
               />
               <Text style={styles.splitText}>
-                Equal split: ${person.equalSplit.toFixed(2)}
+                Equal split: ${formatPrice(person.equalSplit)}
               </Text>
               <Text style={styles.splitText}>
-                Current total: ${person.total.toFixed(2)}
+                Current total: ${formatPrice(person.total)}
               </Text>
               {people.length > 1 && (
                 <TouchableOpacity
@@ -347,7 +357,7 @@ const SplitBill: React.FC = () => {
                 <View style={styles.itemDetailRow}>
                   <Text style={styles.itemDetailLabel}>Total:</Text>
                   <Text style={styles.itemDetailValue}>
-                    ${(item.price * item.quantity).toFixed(2)}
+                    ${formatPrice(item.price * item.quantity)}
                   </Text>
                 </View>
               </View>
@@ -387,10 +397,7 @@ const SplitBill: React.FC = () => {
             <Text style={styles.calculateButtonText}>Calculate Split</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.shareButton}
-            onPress={handleShare}
-          >
+          <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
             <Text style={styles.shareButtonText}>Share Results</Text>
           </TouchableOpacity>
         </View>
@@ -412,11 +419,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   totalsRow: {
     flexDirection: 'row',
@@ -498,11 +511,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   personInput: {
     fontSize: 16,
@@ -532,11 +551,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   itemHeader: {
     marginBottom: 8,

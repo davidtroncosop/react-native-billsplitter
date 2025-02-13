@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "BillSplitter",
-    "slug": "BillSplitter",
-    "version": "1.0.0",
+    "name": "billsplitter",
+    "slug": "billsplitter",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,9 +15,11 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dtroncoso.billsplitter"
     },
     "android": {
+      "package": "com.dtroncoso.billsplitter",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -31,6 +33,13 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "newArchEnabled": true,
+    "experiments": {
+      "tsconfigPaths": true
+    },
+    "developmentClient": {
+      "silentLaunch": true
     }
   }
 }

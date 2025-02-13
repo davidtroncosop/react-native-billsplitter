@@ -1,8 +1,9 @@
-// Development server URL
-export const DEV_API_URL = 'https://react-native-billsplitter-production.up.railway.app';
+// Explicitly declare the global variable
+declare const __DEV__: boolean;
 
-// Production server URL
-export const PROD_API_URL = 'https://react-native-billsplitter-production.up.railway.app';
+// Use a default value if __DEV__ is undefined
+const isDevelopment = typeof __DEV__ !== 'undefined' ? __DEV__ : false;
 
-// Use this to determine which URL to use
-export const API_URL = __DEV__ ? DEV_API_URL : PROD_API_URL;
+export const API_URL = isDevelopment
+  ? 'https://react-native-billsplitter.onrender.com' // Dev
+  : 'https://react-native-billsplitter.onrender.com'; // Prod

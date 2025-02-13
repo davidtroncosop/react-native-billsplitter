@@ -14,3 +14,7 @@ local.properties
 
 # Bundle artifacts
 *.jsbundle
+
+# Ignorar archivos .keystore y .jks
+*.keystore
+*.jks

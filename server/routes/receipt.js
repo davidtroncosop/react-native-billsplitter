@@ -104,6 +104,10 @@ router.post('/process-receipt', async (req, res) => {
        - La cantidad debe ser un número
     
     3. **Extracción de Precios:**
+       - Convierte el precio a un número decimal usando el punto como separador decimal. 
+       - **Si la boleta muestra algo como “3 Schop Heineken 500 14.700”, asume que 14.700 es el total de esos 3 artículos.**  
+       - **Primero conviértelo a 14700.00 (quitando el punto de miles). Luego divide entre la cantidad para obtener el precio unitario.**  
+       - price = 14700.00 / 3 = 4900.00
        - Extrae el precio exacto de cada artículo
        - Convierte el precio a un número decimal usando el punto como separador decimal (sin comas para miles).
        - Elimina cualquier símbolo de moneda

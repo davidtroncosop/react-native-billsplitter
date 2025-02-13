@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-               BuildableName = "BillSplitter.app"
-               BlueprintName = "BillSplitter"
-               ReferencedContainer = "container:BillSplitter.xcodeproj">
+               BuildableName = "billsplitter.app"
+               BlueprintName = "billsplitter"
+               ReferencedContainer = "container:billsplitter.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "BillSplitterTests.xctest"
-               BlueprintName = "BillSplitterTests"
-               ReferencedContainer = "container:BillSplitter.xcodeproj">
+               BuildableName = "billsplitterTests.xctest"
+               BlueprintName = "billsplitterTests"
+               ReferencedContainer = "container:billsplitter.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -55,9 +55,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "BillSplitter.app"
-            BlueprintName = "BillSplitter"
-            ReferencedContainer = "container:BillSplitter.xcodeproj">
+            BuildableName = "billsplitter.app"
+            BlueprintName = "billsplitter"
+            ReferencedContainer = "container:billsplitter.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -72,9 +72,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "BillSplitter.app"
-            BlueprintName = "BillSplitter"
-            ReferencedContainer = "container:BillSplitter.xcodeproj">
+            BuildableName = "billsplitter.app"
+            BlueprintName = "billsplitter"
+            ReferencedContainer = "container:billsplitter.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
