@@ -81,7 +81,8 @@ export default {
           status: 'ok',
           timestamp: new Date().toISOString(),
           environment: env.ENVIRONMENT || 'development',
-          geminiKey: env.GEMINI_API_KEY ? 'configured' : 'not configured'
+          geminiKey: env.GEMINI_API_KEY ? 'configured' : 'not configured',
+          geminiModel: env.GEMINI_MODEL || 'gemini-1.5-flash'
         }), {
           status: 200,
           headers: {
@@ -178,7 +179,9 @@ async function handleProcessReceipt(request, env, corsHeaders) {
 
     console.log('Creating Gemini model instance...');
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const modelName = env.GEMINI_MODEL || "gemini-1.5-flash"; // Configurable model
+    console.log(`Using Gemini model: ${modelName}`);
+    const model = genAI.getGenerativeModel({ model: modelName });
     
     const prompt = `Eres un experto en reconocimiento óptico de caracteres (OCR) y extracción de datos de recibos. Tu tarea es analizar meticulosamente la imagen del recibo proporcionada y extraer con precisión toda la información relevante.
 

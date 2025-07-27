@@ -34,6 +34,18 @@ wrangler secret put CLIENT_URL
 ```
 Ejemplo: `https://tu-app.com`
 
+### Configurar Modelo de Gemini (Opcional)
+El modelo por defecto es `gemini-1.5-flash`. Para cambiarlo, edita `wrangler.toml`:
+```toml
+[vars]
+GEMINI_MODEL = "gemini-2.0-flash-exp"
+```
+
+Modelos disponibles:
+- `gemini-1.5-flash` (por defecto, rápido y eficiente)
+- `gemini-2.0-flash-exp` (experimental, más reciente)
+- `gemini-1.5-pro` (más preciso, más lento)
+
 ## Paso 5: Instalar Dependencias
 
 ```bash

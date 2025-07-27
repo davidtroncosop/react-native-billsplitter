@@ -7,7 +7,11 @@ name = "billsplitter-api"
 
 [vars]
 ENVIRONMENT = "production"
+GEMINI_MODEL = "gemini-1.5-flash"
 
-# Variables de entorno que necesitarás configurar:
+# Variables de entorno secretas que necesitarás configurar:
 # wrangler secret put GEMINI_API_KEY
 # wrangler secret put CLIENT_URL (opcional)
+
+# Para cambiar el modelo de Gemini, actualiza GEMINI_MODEL arriba
+# Modelos disponibles: gemini-1.5-flash, gemini-2.0-flash-exp, etc.
