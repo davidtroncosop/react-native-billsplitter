@@ -1,0 +1,17 @@
+{
+  "name": "billsplitter-cloudflare-workers",
+  "version": "1.0.0",
+  "description": "BillSplitter API on Cloudflare Workers",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:production": "wrangler deploy --env production"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.2.1"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

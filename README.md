@@ -20,70 +20,64 @@ BillSplitter is a mobile application built with React Native that helps users sp
 - AsyncStorage for local data persistence
 - Axios for API communication
 
-### Server (Backend)
-- Node.js
-- Express.js
+### Backend API
+- Cloudflare Workers (Serverless)
 - Google Generative AI (Gemini 1.5)
-- CORS for cross-origin resource sharing
+- Edge computing for ultra-low latency
 
 ## Installation
 
 ### Prerequisites
-- Node.js (v12 or higher)
+- Node.js (v18 or higher)
 - npm or yarn
 - Expo CLI
 - Google Gemini API key
+- Cloudflare account (free tier available)
 
 ### Frontend Setup
 1. Clone the repository
-2. Navigate to the BillSplitter directory:
-```bash
-cd BillSplitter
-```
-3. Install dependencies:
-```bash
-npm install
-```
-4. Create a `.env` file in the root directory and add your configuration
-
-### Backend Setup
-1. Navigate to the server directory:
-```bash
-cd server
-```
 2. Install dependencies:
 ```bash
 npm install
 ```
-3. Create a `.env` file in the server directory and add:
+3. Update the API URL in `config.ts` with your Cloudflare Workers URL
+
+### Backend Setup (Cloudflare Workers)
+1. Navigate to the backend directory:
+```bash
+cd cloudflare-workers
 ```
-GEMINI_API_KEY=your_gemini_api_key
-PORT=3001
+2. Install Wrangler CLI:
+```bash
+npm install -g wrangler
 ```
+3. Authenticate with Cloudflare:
+```bash
+wrangler login
+```
+4. Install dependencies:
+```bash
+npm install
+```
+5. Configure your Gemini API key:
+```bash
+wrangler secret put GEMINI_API_KEY
+```
+6. Deploy to Cloudflare Workers:
+```bash
+npm run deploy
+```
+
+For detailed setup instructions, see [CLOUDFLARE-SETUP.md](CLOUDFLARE-SETUP.md)
 
 ## Running the Application
 
-### Start the Backend Server
-1. Navigate to the server directory:
-```bash
-cd server
-```
-2. Run the development server:
-```bash
-npm run dev
-```
-The server will start on port 3001 by default.
-
 ### Start the Frontend Application
-1. Navigate to the BillSplitter directory:
-```bash
-cd BillSplitter
-```
-2. Start the Expo development server:
+1. Start the Expo development server:
 ```bash
 npm start
 ```
-3. Use the Expo Go app on your mobile device to scan the QR code, or run on an emulator using the appropriate command:
+2. Use the Expo Go app on your mobile device to scan the QR code, or run on an emulator:
 - For iOS: `npm run ios`
 - For Android: `npm run android`
 
@@ -133,7 +127,17 @@ Processes a receipt image and returns extracted items and total.
 
 ## Development Notes
 
-- The backend uses the Gemini 1.5 model for optimal receipt processing
-- The server includes detailed request logging for debugging
+- The backend uses Cloudflare Workers for serverless deployment
+- The API uses the Gemini 1.5 model for optimal receipt processing
+- Edge computing provides ultra-low latency globally
 - CORS is configured to allow cross-origin requests
 - The application supports both development and production environments
+
+## Deployment
+
+The backend is deployed on Cloudflare Workers, providing:
+- ⚡ Ultra-low latency (edge computing)
+- 🌍 Global distribution (200+ locations)
+- 📈 Auto-scaling
+- 💰 Cost-effective (generous free tier)
+- 🔒 Built-in security and DDoS protection

@@ -1,93 +1,183 @@
-import express from 'express';
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import dotenv from 'dotenv';
 
-dotenv.config();
+// CORS configuration
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Max-Age': '86400',
+};
 
-const router = express.Router();
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+// Allowed origins for production
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:19006',
+  'https://react-native-billsplitter-production.up.railway.app',
+  'http://react-native-billsplitter-production.up.railway.app',
+];
 
-// Validación inicial de API key
-if (!GEMINI_API_KEY) {
-  throw new Error('GEMINI_API_KEY is not set in environment variables');
+function getCorsHeaders(request, env) {
+  const origin = request.headers.get('Origin');
+  
+  if (env.ENVIRONMENT === 'production' && origin && !allowedOrigins.includes(origin) && !env.CLIENT_URL?.includes(origin)) {
+    return {
+      ...corsHeaders,
+      'Access-Control-Allow-Origin': 'null',
+    };
+  }
+  
+  return {
+    ...corsHeaders,
+    'Access-Control-Allow-Origin': origin || '*',
+  };
 }
 
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-
-// Función para limpiar el texto JSON
+// Utility functions
 const cleanJsonText = (text) => {
   return text
     .replace(/```json/g, '')
     .replace(/```/g, '')
     .replace(/[\u201C\u201D]/g, '"')
     .replace(/[\u2018\u2019]/g, "'")
-    .trim(); // Eliminada la conversión incorrecta que introducía comas
+    .trim();
 };
 
-// Función para validar la estructura del JSON
 const validateJsonStructure = (data) => {
-  if (!data.items || !Array.isArray(data.items) || !data.total) { // 'currency' eliminado como obligatorio
+  if (!data.items || !Array.isArray(data.items) || !data.total) {
     throw new Error('Invalid JSON structure: missing required fields');
   }
 
   data.items.forEach((item, index) => {
-    if (!item.name || typeof item.quantity !== 'number' || typeof item.price !== 'number') { // Verificar que price sea un número
+    if (!item.name || typeof item.quantity !== 'number' || typeof item.price !== 'number') {
       throw new Error(`Invalid item structure at index ${index}`);
     }
   });
 
-  if (typeof data.total !== 'number') { // Verificar que total sea un número
+  if (typeof data.total !== 'number') {
     throw new Error('Invalid total value');
   }
 
   return true;
 };
 
-router.post('/process-receipt', async (req, res) => {
+// Main request handler
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    const corsHeadersForRequest = getCorsHeaders(request, env);
+
+    // Handle CORS preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 200,
+        headers: corsHeadersForRequest,
+      });
+    }
+
+    try {
+      // Health check endpoint
+      if (url.pathname === '/health') {
+        return new Response(JSON.stringify({
+          status: 'ok',
+          timestamp: new Date().toISOString(),
+          environment: env.ENVIRONMENT || 'development',
+          geminiKey: env.GEMINI_API_KEY ? 'configured' : 'not configured'
+        }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeadersForRequest,
+          },
+        });
+      }
+
+      // Process receipt endpoint
+      if (url.pathname === '/api/process-receipt' && request.method === 'POST') {
+        return await handleProcessReceipt(request, env, corsHeadersForRequest);
+      }
+
+      // 404 for other routes
+      return new Response(JSON.stringify({
+        success: false,
+        message: `Route ${url.pathname} not found`
+      }), {
+        status: 404,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeadersForRequest,
+        },
+      });
+
+    } catch (error) {
+      console.error('Error:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        message: error.message,
+        timestamp: new Date().toISOString()
+      }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeadersForRequest,
+        },
+      });
+    }
+  },
+};
+
+async function handleProcessReceipt(request, env, corsHeaders) {
   try {
     console.log('=== Starting Receipt Processing ===');
-    console.log('Request headers:', req.headers);
-    console.log('Content-Type:', req.headers['content-type']);
-
-    const { imageData, mimeType = "image/jpeg" } = req.body;
     
-    // Validación de datos de entrada
+    const GEMINI_API_KEY = env.GEMINI_API_KEY;
+    
+    if (!GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY is not configured');
+    }
+
+    const body = await request.json();
+    const { imageData, mimeType = "image/jpeg" } = body;
+    
+    // Validation
     if (!imageData) {
-      console.error('No image data received');
-      return res.status(400).json({ 
-        success: false, 
+      return new Response(JSON.stringify({
+        success: false,
         error: 'No image data provided',
         details: 'The request must include base64 encoded image data'
+      }), {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
       });
     }
 
-    // Verificar el formato del base64
-    if (!imageData.startsWith('data:image') && !imageData.match(/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/)) {
-      console.error('Invalid base64 format');
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid image data format',
-        details: 'The image data must be properly base64 encoded'
-      });
-    }
-
-    // Procesar el base64 para remover el prefijo si existe
+    // Process base64 data
     const base64Data = imageData.includes('base64,') 
       ? imageData.split('base64,')[1] 
       : imageData;
 
-    // Verificar tamaño
+    // Check size (4MB limit)
     const sizeInMB = (base64Data.length * 3/4) / (1024*1024);
     console.log(`Image size: ${sizeInMB.toFixed(2)} MB`);
     
     if (sizeInMB > 4) {
-      return res.status(400).json({
+      return new Response(JSON.stringify({
         success: false,
         error: 'Image too large',
         details: `Image size (${sizeInMB.toFixed(2)}MB) exceeds 4MB limit`
+      }), {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
       });
     }
+
     console.log('Creating Gemini model instance...');
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     const prompt = `Eres un experto en reconocimiento óptico de caracteres (OCR) y extracción de datos de recibos. Tu tarea es analizar meticulosamente la imagen del recibo proporcionada y extraer con precisión toda la información relevante.
@@ -105,7 +195,7 @@ router.post('/process-receipt', async (req, res) => {
     
     3. **Extracción de Precios:**
        - Convierte el precio a un número decimal usando el punto como separador decimal. 
-       - **Si la boleta muestra algo como “3 Schop Heineken 500 14.700”, asume que 14.700 es el total de esos 3 artículos.**  
+       - **Si la boleta muestra algo como "3 Schop Heineken 500 14.700", asume que 14.700 es el total de esos 3 artículos.**  
        - **Primero conviértelo a 14700.00 (quitando el punto de miles). Luego divide entre la cantidad para obtener el precio unitario.**  
        - price = 14700.00 / 3 = 4900.00
        - Extrae el precio exacto de cada artículo
@@ -181,7 +271,6 @@ router.post('/process-receipt', async (req, res) => {
     });
 
     if (!result) {
-      console.error('No response received from Gemini API');
       throw new Error('No response received from Gemini API');
     }
 
@@ -189,7 +278,6 @@ router.post('/process-receipt', async (req, res) => {
     const text = response.text();
 
     if (!text) {
-      console.error('Empty response from Gemini API');
       throw new Error('Empty response from Gemini API');
     }
 
@@ -200,59 +288,80 @@ router.post('/process-receipt', async (req, res) => {
 
     try {
       const extractedData = JSON.parse(cleanedText);
-      validateJsonStructure
+      validateJsonStructure(extractedData);
       
       console.log('Successfully processed receipt:', extractedData);
-      res.json({ 
-        success: true, 
+      
+      return new Response(JSON.stringify({
+        success: true,
         data: extractedData,
         debug: {
           imageSize: `${sizeInMB.toFixed(2)}MB`,
           processingTime: new Date().toISOString()
         }
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
       });
+
     } catch (parseError) {
       console.error('JSON parsing error:', parseError);
       
-      // Intento de recuperación
+      // Recovery attempt
       const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
           const extractedData = JSON.parse(jsonMatch[0]);
           if (validateJsonStructure(extractedData)) {
             console.log('Successfully recovered and parsed data:', extractedData);
-            res.json({ 
-              success: true, 
+            return new Response(JSON.stringify({
+              success: true,
               data: extractedData,
               recovered: true
+            }), {
+              status: 200,
+              headers: {
+                'Content-Type': 'application/json',
+                ...corsHeaders,
+              },
             });
-            return;
           }
         } catch (recoveryError) {
           console.error('Recovery attempt failed:', recoveryError);
         }
       }
 
-      res.status(500).json({ 
-        success: false, 
+      return new Response(JSON.stringify({
+        success: false,
         error: 'Failed to parse receipt data',
         details: parseError.message,
         rawResponse: cleanedText
+      }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
       });
     }
 
   } catch (error) {
     console.error('Fatal error in receipt processing:', error);
-    console.error('Stack trace:', error.stack);
     
-    res.status(500).json({ 
-      success: false, 
+    return new Response(JSON.stringify({
+      success: false,
       error: 'Receipt processing failed',
       details: error.message,
-      timestamp: new Date().toISOString(),
-      geminiConfigured: !!GEMINI_API_KEY
+      timestamp: new Date().toISOString()
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
     });
   }
-});
-
-export default router;
+}
