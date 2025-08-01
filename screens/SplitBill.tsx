@@ -48,6 +48,9 @@ const SplitBill: React.FC = () => {
     { id: 1, name: 'Person 1', total: 0, equalSplit: 0 },
   ]);
   const [subtotal, setSubtotal] = useState(0);
+  const [discountPercentage, setDiscountPercentage] = useState(0);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [subtotalAfterDiscount, setSubtotalAfterDiscount] = useState(0);
   const [tipPercentage, setTipPercentage] = useState(10);
   const [tipAmount, setTipAmount] = useState(0);
   const [total, setTotal] = useState(0);
@@ -67,8 +70,8 @@ const SplitBill: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    calculateTipAndTotal();
-  }, [subtotal, tipPercentage]);
+    calculateDiscountTipAndTotal();
+  }, [subtotal, discountPercentage, tipPercentage]);
 
   useEffect(() => {
     calculateEqualSplits();
@@ -111,10 +114,21 @@ const SplitBill: React.FC = () => {
     setSubtotal(newSubtotal);
   };
 
-  const calculateTipAndTotal = () => {
+  const calculateDiscountTipAndTotal = () => {
+    // Calcular descuento
+    const newDiscountAmount = (subtotal * discountPercentage) / 100;
+    setDiscountAmount(newDiscountAmount);
+    
+    // Subtotal después del descuento
+    const newSubtotalAfterDiscount = subtotal - newDiscountAmount;
+    setSubtotalAfterDiscount(newSubtotalAfterDiscount);
+    
+    // Propina se calcula sobre el subtotal SIN descuento
     const newTipAmount = (subtotal * tipPercentage) / 100;
     setTipAmount(newTipAmount);
-    setTotal(subtotal + newTipAmount);
+    
+    // Total = subtotal - descuento + propina
+    setTotal(newSubtotalAfterDiscount + newTipAmount);
   };
 
   const calculateEqualSplits = () => {
@@ -123,6 +137,11 @@ const SplitBill: React.FC = () => {
       ...person,
       equalSplit: equalSplitAmount,
     })));
+  };
+
+  const handleDiscountPercentageChange = (value: string) => {
+    const newDiscountPercentage = Math.max(0, Math.min(100, Number(value) || 0));
+    setDiscountPercentage(newDiscountPercentage);
   };
 
   const handleTipPercentageChange = (value: string) => {
@@ -214,6 +233,13 @@ const SplitBill: React.FC = () => {
       }
     });
 
+    // Aplicar descuento proporcional a cada persona
+    const discountPerPerson = discountAmount / people.length;
+    newPeople.forEach(person => {
+      person.total -= discountPerPerson;
+    });
+
+    // Agregar propina por persona
     const tipPerPerson = tipAmount / people.length;
     newPeople.forEach(person => {
       person.total += tipPerPerson;
@@ -236,7 +262,11 @@ const SplitBill: React.FC = () => {
     try {
       let message = `💰 Bill Split Summary 💰\n\n`;
       message += `Subtotal: $${formatPrice(subtotal)}\n`;
-      message += `Tip (${tipPercentage}%): $${formatPrice(tipAmount)}\n`;
+      if (discountPercentage > 0) {
+        message += `Discount (${discountPercentage}%): -$${formatPrice(discountAmount)}\n`;
+        message += `Subtotal after discount: $${formatPrice(subtotalAfterDiscount)}\n`;
+      }
+      message += `Tip (${tipPercentage}% on original): $${formatPrice(tipAmount)}\n`;
       message += `Total: $${formatPrice(total)}\n\n`;
       message += `👥 Individual Splits:\n`;
 
@@ -264,7 +294,30 @@ const SplitBill: React.FC = () => {
 
           <View style={styles.totalsRow}>
             <View style={styles.tipContainer}>
-              <Text style={styles.totalLabel}>Tip:</Text>
+              <Text style={styles.totalLabel}>Discount:</Text>
+              <View style={styles.tipInputContainer}>
+                <TextInput
+                  value={String(discountPercentage)}
+                  onChangeText={handleDiscountPercentageChange}
+                  keyboardType="numeric"
+                  style={styles.tipInput}
+                />
+                <Text style={styles.tipPercentage}>%</Text>
+              </View>
+            </View>
+            <Text style={[styles.totalValue, styles.discountValue]}>-${formatPrice(discountAmount)}</Text>
+          </View>
+
+          {discountPercentage > 0 && (
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalLabel}>Subtotal after discount:</Text>
+              <Text style={styles.totalValue}>${formatPrice(subtotalAfterDiscount)}</Text>
+            </View>
+          )}
+
+          <View style={styles.totalsRow}>
+            <View style={styles.tipContainer}>
+              <Text style={styles.totalLabel}>Tip (on original):</Text>
               <View style={styles.tipInputContainer}>
                 <TextInput
                   value={String(tipPercentage)}
@@ -481,6 +534,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#4F46E5',
+  },
+  discountValue: {
+    color: '#10B981',
   },
   section: {
     marginBottom: 20,

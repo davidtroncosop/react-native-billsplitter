@@ -20,6 +20,7 @@
     },
     "android": {
       "package": "com.dtroncoso.billsplitter",
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -40,6 +41,11 @@
     },
     "developmentClient": {
       "silentLaunch": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "37e58f6f-16b4-496f-8941-7532bf1ce2ec"
+      }
     }
   }
 }
