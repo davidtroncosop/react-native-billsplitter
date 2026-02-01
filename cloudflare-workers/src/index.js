@@ -18,14 +18,14 @@ const allowedOrigins = [
 
 function getCorsHeaders(request, env) {
   const origin = request.headers.get('Origin');
-  
+
   if (env.ENVIRONMENT === 'production' && origin && !allowedOrigins.includes(origin) && !env.CLIENT_URL?.includes(origin)) {
     return {
       ...corsHeaders,
       'Access-Control-Allow-Origin': 'null',
     };
   }
-  
+
   return {
     ...corsHeaders,
     'Access-Control-Allow-Origin': origin || '*',
@@ -129,16 +129,16 @@ export default {
 async function handleProcessReceipt(request, env, corsHeaders) {
   try {
     console.log('=== Starting Receipt Processing ===');
-    
+
     const GEMINI_API_KEY = env.GEMINI_API_KEY;
-    
+
     if (!GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not configured');
     }
 
     const body = await request.json();
     const { imageData, mimeType = "image/jpeg" } = body;
-    
+
     // Validation
     if (!imageData) {
       return new Response(JSON.stringify({
@@ -155,14 +155,14 @@ async function handleProcessReceipt(request, env, corsHeaders) {
     }
 
     // Process base64 data
-    const base64Data = imageData.includes('base64,') 
-      ? imageData.split('base64,')[1] 
+    const base64Data = imageData.includes('base64,')
+      ? imageData.split('base64,')[1]
       : imageData;
 
     // Check size (4MB limit)
-    const sizeInMB = (base64Data.length * 3/4) / (1024*1024);
+    const sizeInMB = (base64Data.length * 3 / 4) / (1024 * 1024);
     console.log(`Image size: ${sizeInMB.toFixed(2)} MB`);
-    
+
     if (sizeInMB > 4) {
       return new Response(JSON.stringify({
         success: false,
@@ -179,10 +179,10 @@ async function handleProcessReceipt(request, env, corsHeaders) {
 
     console.log('Creating Gemini model instance...');
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const modelName = env.GEMINI_MODEL || "gemini-1.5-flash"; // Configurable model
+    const modelName = env.GEMINI_MODEL || "gemini-3-flash-preview"; // Configurable model
     console.log(`Using Gemini model: ${modelName}`);
     const model = genAI.getGenerativeModel({ model: modelName });
-    
+
     const prompt = `Eres un experto en reconocimiento óptico de caracteres (OCR) y extracción de datos de recibos. Tu tarea es analizar meticulosamente la imagen del recibo proporcionada y extraer con precisión toda la información relevante.
 
     Por favor, realiza lo siguiente:
@@ -257,7 +257,7 @@ async function handleProcessReceipt(request, env, corsHeaders) {
     IMPORTANTE: 
     - Responde SOLO con el objeto JSON
     - Asegúrate de que todos los precios que terminen en tres ceros después del punto (ejemplo: "3.700") sean convertidos a formato sin coma y con dos decimales (ejemplo: "3700.00")`;
-    
+
     const imageParts = [
       {
         inlineData: {
@@ -268,7 +268,7 @@ async function handleProcessReceipt(request, env, corsHeaders) {
     ];
 
     console.log('Sending request to Gemini API...');
-    
+
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }, ...imageParts] }]
     });
@@ -292,9 +292,9 @@ async function handleProcessReceipt(request, env, corsHeaders) {
     try {
       const extractedData = JSON.parse(cleanedText);
       validateJsonStructure(extractedData);
-      
+
       console.log('Successfully processed receipt:', extractedData);
-      
+
       return new Response(JSON.stringify({
         success: true,
         data: extractedData,
@@ -312,7 +312,7 @@ async function handleProcessReceipt(request, env, corsHeaders) {
 
     } catch (parseError) {
       console.error('JSON parsing error:', parseError);
-      
+
       // Recovery attempt
       const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -353,7 +353,7 @@ async function handleProcessReceipt(request, env, corsHeaders) {
 
   } catch (error) {
     console.error('Fatal error in receipt processing:', error);
-    
+
     return new Response(JSON.stringify({
       success: false,
       error: 'Receipt processing failed',
